@@ -5,6 +5,7 @@ import { FounderPair } from '../components/public/FounderPair';
 import { GrowthTabs } from '../components/public/GrowthTabs';
 import { HeroEvidence } from '../components/public/HeroEvidence';
 import { PositionSummary } from '../components/public/PositionSummary';
+import { getRenderedPublicSectionIds, resolveEvidenceLinks } from '../components/public/publicSections';
 import type { PublishedSiteContent } from '../content/types';
 import '../components/public/public-sections.css';
 
@@ -13,17 +14,20 @@ type HomePageProps = {
 };
 
 export function HomePage({ content }: HomePageProps) {
+  const renderedSectionIds = getRenderedPublicSectionIds(content);
+  const evidenceItems = resolveEvidenceLinks(content.evidence, renderedSectionIds);
+
   return (
     <main id="main-content" tabIndex={-1}>
       <HeroEvidence hero={content.hero} />
-      <EvidenceRail items={content.evidence} />
+      <EvidenceRail items={evidenceItems} />
       {content.center && <CenterStory center={content.center} />}
-      {content.representatives.length > 0 && <FounderPair people={content.representatives} />}
-      {content.positions.length > 0 && <GrowthTabs positions={content.positions} />}
-      {(content.benefits.length > 0 || content.rules.length > 0) && (
+      {renderedSectionIds.has('representatives') && <FounderPair people={content.representatives} />}
+      {renderedSectionIds.has('vision') && <GrowthTabs positions={content.positions} />}
+      {renderedSectionIds.has('benefits-rules') && (
         <BenefitsAndRules benefits={content.benefits} rules={content.rules} />
       )}
-      {content.positions.length > 0 && <PositionSummary positions={content.positions} />}
+      {renderedSectionIds.has('positions') && <PositionSummary positions={content.positions} />}
     </main>
   );
 }

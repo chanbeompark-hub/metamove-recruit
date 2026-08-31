@@ -6,9 +6,9 @@ export const siteContent: SiteContent = {
     published: true,
   },
   evidence: [
-    { index: '01', label: '성장', href: '#growth', published: true },
-    { index: '02', label: '보상', href: '#reward', published: true },
-    { index: '03', label: '확장', href: '#expansion', published: true },
+    { index: '01', label: '성장', href: '/#vision', published: true },
+    { index: '02', label: '보상', href: '/#benefits-rules', published: true },
+    { index: '03', label: '확장', href: '/#vision', published: true },
   ],
   center: {
     title: '',

@@ -4,12 +4,26 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
 import { getPublishedContent } from '../content/getPublishedContent';
 import { siteContent } from '../content/siteContent';
+import { FounderPair } from '../components/public/FounderPair';
+import { GrowthTabs } from '../components/public/GrowthTabs';
+import { PublicFooter } from '../components/public/PublicFooter';
+import { PublicHeader } from '../components/public/PublicHeader';
 import { publishedFixture } from '../test/fixtures/siteContent';
 import { HomePage } from './HomePage';
 
 afterEach(cleanup);
 
 describe('HomePage', () => {
+  const expectEveryLocalFragmentToResolve = () => {
+    const fragmentLinks = Array.from(document.querySelectorAll<HTMLAnchorElement>('a[href*="#"]'));
+
+    for (const link of fragmentLinks) {
+      const fragment = new URL(link.href).hash.slice(1);
+      expect(fragment, `${link.getAttribute('href')} must include a fragment`).not.toBe('');
+      expect(document.getElementById(fragment), `${link.getAttribute('href')} must resolve`).not.toBeNull();
+    }
+  };
+
   it('orders approved proof before conditions and hides unpublished claims', async () => {
     const user = userEvent.setup();
     render(<MemoryRouter><HomePage content={publishedFixture} /></MemoryRouter>);
@@ -63,5 +77,58 @@ describe('HomePage', () => {
     expect(screen.queryByRole('region', { name: '대표 소개' })).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: '혜택과 근무 규정' })).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: '채용 포지션' })).not.toBeInTheDocument();
+  });
+
+  it('renders only local fragment links that resolve in the production page', () => {
+    const productionContent = getPublishedContent(siteContent);
+    render(
+      <MemoryRouter>
+        <PublicHeader content={productionContent} />
+        <HomePage content={productionContent} />
+        <PublicFooter />
+      </MemoryRouter>,
+    );
+
+    expectEveryLocalFragmentToResolve();
+  });
+
+  it('renders only local fragment links that resolve when optional fixture sections exist', () => {
+    render(
+      <MemoryRouter>
+        <PublicHeader content={publishedFixture} />
+        <HomePage content={publishedFixture} />
+        <PublicFooter />
+      </MemoryRouter>,
+    );
+
+    expectEveryLocalFragmentToResolve();
+  });
+
+  it('limits the representative composition to the first two approved profiles', () => {
+    const firstPerson = publishedFixture.representatives[0];
+    const people = [
+      firstPerson,
+      { ...firstPerson, id: 'second-founder', name: '이무브' },
+      { ...firstPerson, id: 'third-founder', name: '박짐' },
+    ];
+
+    render(<FounderPair people={people} />);
+
+    expect(screen.getAllByRole('article')).toHaveLength(2);
+    expect(screen.getByRole('heading', { name: '김메타' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '이무브' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: '박짐' })).not.toBeInTheDocument();
+  });
+
+  it('keeps one selected tab and panel when the available positions shrink', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<GrowthTabs positions={publishedFixture.positions} />);
+
+    await user.click(screen.getByRole('tab', { name: '경력 트레이너' }));
+    rerender(<GrowthTabs positions={[publishedFixture.positions[0]]} />);
+
+    expect(screen.getAllByRole('tab', { selected: true })).toHaveLength(1);
+    expect(screen.getByRole('tab', { name: '신입 트레이너' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tabpanel')).toBeVisible();
   });
 });

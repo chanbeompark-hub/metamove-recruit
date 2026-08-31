@@ -5,7 +5,9 @@ type FounderPairProps = {
 };
 
 export function FounderPair({ people }: FounderPairProps) {
-  const availablePeople = people.filter(({ name, role }) => name.trim() && role.trim());
+  const availablePeople = people
+    .filter(({ name, role, published }) => published && name.trim() && role.trim())
+    .slice(0, 2);
 
   if (availablePeople.length === 0) {
     return null;

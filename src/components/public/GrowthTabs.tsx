@@ -17,6 +17,8 @@ export function GrowthTabs({ positions }: GrowthTabsProps) {
     return null;
   }
 
+  const activeIndex = Math.min(selectedIndex, availablePositions.length - 1);
+
   const selectAndFocus = (index: number) => {
     const nextIndex = (index + availablePositions.length) % availablePositions.length;
     setSelectedIndex(nextIndex);
@@ -51,7 +53,7 @@ export function GrowthTabs({ positions }: GrowthTabsProps) {
             {availablePositions.map((position, index) => {
               const tabId = `${idPrefix}-${position.id}-tab`;
               const panelId = `${idPrefix}-${position.id}-panel`;
-              const isSelected = selectedIndex === index;
+              const isSelected = activeIndex === index;
               return (
                 <button
                   aria-controls={panelId}
@@ -77,7 +79,7 @@ export function GrowthTabs({ positions }: GrowthTabsProps) {
               <div
                 aria-labelledby={`${idPrefix}-${position.id}-tab`}
                 className="growth-tabs__panel"
-                hidden={selectedIndex !== index}
+                hidden={activeIndex !== index}
                 id={`${idPrefix}-${position.id}-panel`}
                 key={position.id}
                 role="tabpanel"

@@ -1,14 +1,22 @@
 import { Link } from 'react-router-dom';
+import type { PublishedSiteContent } from '../../content/types';
+import { getRenderedPublicSectionIds, type PublicSectionId } from './publicSections';
 
 const navigationItems = [
-  { label: '메타무브짐', href: '/#metamove' },
-  { label: '성장과 비전', href: '/#vision' },
-  { label: '대표 소개', href: '/#representatives' },
-  { label: '혜택·규정', href: '/#benefits-rules' },
-  { label: '채용 포지션', href: '/#positions' },
+  { label: '메타무브짐', id: 'metamove' },
+  { label: '성장과 비전', id: 'vision' },
+  { label: '대표 소개', id: 'representatives' },
+  { label: '혜택·규정', id: 'benefits-rules' },
+  { label: '채용 포지션', id: 'positions' },
 ] as const;
 
-export function PublicHeader() {
+type PublicHeaderProps = {
+  content: PublishedSiteContent;
+};
+
+export function PublicHeader({ content }: PublicHeaderProps) {
+  const renderedSectionIds = getRenderedPublicSectionIds(content);
+
   return (
     <header className="public-header">
       <a className="skip-link" href="#main-content">본문 바로가기</a>
@@ -18,11 +26,11 @@ export function PublicHeader() {
         </a>
         <nav className="public-nav" aria-label="주요 메뉴">
           <div className="public-nav__sections">
-            {navigationItems.map((item) => (
+            {navigationItems.filter((item) => renderedSectionIds.has(item.id as PublicSectionId)).map((item) => (
               <a
                 className="public-nav__section-link"
-                href={item.href}
-                key={item.href}
+                href={`/#${item.id}`}
+                key={item.id}
                 onFocus={(event) => event.currentTarget.scrollIntoView({ block: 'nearest', inline: 'nearest' })}
               >
                 {item.label}

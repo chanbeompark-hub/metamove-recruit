@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
+import { publishedFixture } from '../../test/fixtures/siteContent';
 import { PublicHeader } from './PublicHeader';
 
 describe('PublicHeader', () => {
@@ -10,7 +11,7 @@ describe('PublicHeader', () => {
 
     render(
       <MemoryRouter>
-        <PublicHeader />
+        <PublicHeader content={publishedFixture} />
       </MemoryRouter>,
     );
 
