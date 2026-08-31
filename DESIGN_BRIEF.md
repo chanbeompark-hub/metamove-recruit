@@ -36,10 +36,10 @@
 
 | Reference evidence | Extracted principle | Local component | Motion/state | Mobile translation | Acceptance evidence |
 |---|---|---|---|---|---|
-| Equinox 홈과 Personal Trainer 구간 | 채용 행동 뒤에 교육·성장 근거 제공 | Hero, ValueIndex, GrowthTabs | 가치 01→03 순차 공개 | 세로 스택과 고정 지원 CTA | 첫 화면 CTA와 3개 기준이 390px에서 겹치지 않음 |
-| On 미션·사람·문화 구간 | 실제 미디어로 브랜드 신념 증명 | CenterStory, FounderPair | 사진 마스크와 캡션 순차 공개 | 인물별 세로 교차 배치 | 제공 사진만 로드되고 이름·경력이 잘리지 않음 |
-| GOV.UK Check answers | 제출 전 요약·수정·확정 | ApplicationReview | 수정 후 리뷰 단계 복귀 | 키·값·수정 링크 세로 배치 | 이전 답변 보존, 오류 없이 해당 단계로 복귀 |
-| Magic UI Number Ticker | 숫자에만 목적 있는 짧은 전환 | ValueIndex | 0→인덱스, 400–650ms | 정적 숫자 또는 단축 전환 | reduced-motion에서 즉시 최종값 표시 |
+| Equinox 홈과 Personal Trainer 구간 | 채용 행동 뒤에 교육·성장 근거 제공 | Hero, ValueIndex, GrowthTabs | 가치 01→03 순차 공개 | 세로 스택과 고정 지원 CTA | `.superpowers/sdd/2026-08-31-metamove-public-site/artifacts/public-home-1440.png`, `public-home-390.png`; 320/360/390/430/1440px E2E에서 CTA 노출·비겹침과 문서 overflow 0 확인 |
+| On 미션·사람·문화 구간 | 실제 미디어로 브랜드 신념 증명 | CenterStory, FounderPair | 사진 마스크와 캡션 순차 공개 | 인물별 세로 교차 배치 | 승인된 센터·대표 미디어가 아직 없어 해당 섹션은 공개 DOM에서 숨김; 캡처에서 빈 제목·대체 사진 없음 확인 |
+| GOV.UK Check answers | 제출 전 요약·수정·확정 | ApplicationReview | 수정 후 리뷰 단계 복귀 | 키·값·수정 링크 세로 배치 | 이번 공개 사이트 범위에서는 `/apply` 이동과 복귀 fragment만 E2E 확인; 단계형 검토 화면은 후속 지원서 계획 범위 |
+| Magic UI Number Ticker | 숫자에만 목적 있는 짧은 전환 | ValueIndex | 0→인덱스, 400–650ms | 정적 숫자 또는 단축 전환 | Playwright `page.emulateMedia({ reducedMotion: 'reduce' })`에서 Hero/Evidence 7개 대상의 계산값 `animation-name: none`, `transform: none`, `opacity: 1`, `transition-duration: 0s` 확인 |
 
 ## Signature composition and component
 
@@ -106,7 +106,10 @@
 
 ## Verification captures
 
-- 구현 시 공개 홈 첫 화면과 대표·혜택 구간: 데스크톱, 390px.
+- 공개 홈 전체 화면: `.superpowers/sdd/2026-08-31-metamove-public-site/artifacts/public-home-1440.png`, `.superpowers/sdd/2026-08-31-metamove-public-site/artifacts/public-home-390.png`.
+- 320/360/390/430/1440px: `e2e/public-site.spec.ts`에서 문서 가로 overflow, CTA 가시성, 모바일 footer 비겹침, safe-area 예약 공간 확인.
+- 키보드·경로: skip-link 즉시 노출과 2px focus outline, 렌더된 `/#...` fragment 대상, `/apply` 이동 확인.
+- reduced-motion: HeroEvidence 구조선·헤드라인·축·마커와 EvidenceRail 항목·라벨·화살표의 브라우저 계산 스타일이 모두 최종 상태임을 확인.
 - 지원서: 빈 상태, 정상 작성, 오류, 제출 전 검토, 제출 완료.
 - 관리자: 신규 지원자 목록, 상세 검토, 상태 변경, 접근 거부.
 - 시그니처 모션: 첫 화면 조립과 EvidenceRail 진행을 5–10초로 기록.

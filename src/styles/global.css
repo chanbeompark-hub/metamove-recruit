@@ -5,6 +5,7 @@
 }
 
 html {
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
   scroll-behavior: smooth;
 }
 
@@ -58,6 +59,7 @@ svg {
 
 .skip-link:focus {
   transform: translateY(0);
+  transition-duration: 0s;
 }
 
 .public-header {
@@ -174,7 +176,7 @@ svg {
 
 @media (max-width: 767px) {
   body {
-    padding-bottom: calc(4.75rem + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(4.75rem + var(--safe-area-bottom));
   }
 
   .public-header__inner,
@@ -226,7 +228,7 @@ svg {
     inset-inline: 0;
     inset-block-end: 0;
     display: block;
-    padding: var(--space-3) var(--space-3) calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+    padding: var(--space-3) var(--space-3) calc(var(--space-3) + var(--safe-area-bottom));
     border-top: 1px solid var(--color-line);
     background: rgb(255 255 255 / 96%);
   }
