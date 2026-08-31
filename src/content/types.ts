@@ -43,7 +43,12 @@ export type EvidenceItem = {
 };
 
 export type SiteContent = {
-  hero: PublishableSection<{ headline: string; supportingCopy?: string }>;
+  hero: PublishableSection<{
+    headline: string;
+    supportingCopy?: string;
+    imageSrc?: string;
+    imageAlt?: string;
+  }>;
   evidence: EvidenceItem[];
   center: PublishableSection<{
     title: string;

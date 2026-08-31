@@ -2,10 +2,7 @@ import { Link } from 'react-router-dom';
 import type { SiteContent } from '../../content/types';
 import './evidence.css';
 
-type HeroContent = SiteContent['hero'] & {
-  imageSrc?: string;
-  imageAlt?: string;
-};
+type HeroContent = SiteContent['hero'];
 
 type HeroEvidenceProps = {
   hero: HeroContent;

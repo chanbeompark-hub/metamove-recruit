@@ -1,7 +1,8 @@
 import { cleanup, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { EvidenceItem } from '../../content/types';
+import { getPublishedContent } from '../../content/getPublishedContent';
+import type { EvidenceItem, SiteContent } from '../../content/types';
 import { EvidenceRail } from './EvidenceRail';
 import { HeroEvidence } from './HeroEvidence';
 
@@ -52,17 +53,26 @@ describe('EvidenceRail', () => {
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
   });
 
-  it('renders hero media only when an approved source and description are provided', () => {
+  it('renders approved hero media from the production content contract', () => {
+    const content: SiteContent = {
+      hero: {
+        headline: '좋은 트레이너가 오래 성장하는 시스템.',
+        imageSrc: '/approved-center.jpg',
+        imageAlt: '메타무브짐 센터 내부',
+        published: true,
+      },
+      evidence: [],
+      center: { title: '', body: '', published: false },
+      representatives: [],
+      benefits: [],
+      rules: [],
+      positions: [],
+    };
+    const publishedContent = getPublishedContent(content);
+
     render(
       <MemoryRouter>
-        <HeroEvidence
-          hero={{
-            headline: '좋은 트레이너가 오래 성장하는 시스템.',
-            imageSrc: '/approved-center.jpg',
-            imageAlt: '메타무브짐 센터 내부',
-            published: true,
-          }}
-        />
+        <HeroEvidence hero={publishedContent.hero} />
       </MemoryRouter>,
     );
 
