@@ -1,4 +1,4 @@
-import { type KeyboardEvent, useId, useRef, useState } from 'react';
+import { type KeyboardEvent, useId, useLayoutEffect, useRef, useState } from 'react';
 import type { Position } from '../../content/types';
 
 type GrowthTabsProps = {
@@ -10,14 +10,22 @@ export function GrowthTabs({ positions }: GrowthTabsProps) {
     ({ title, requirements, preferences }) => title.trim() && (requirements.length > 0 || preferences.length > 0),
   );
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [focusedTabId, setFocusedTabId] = useState<string | null>(null);
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const idPrefix = useId().replaceAll(':', '');
+  const activeIndex = Math.min(selectedIndex, Math.max(availablePositions.length - 1, 0));
+  const focusedTabWasRemoved = focusedTabId !== null
+    && !availablePositions.some(({ id }) => id === focusedTabId);
+
+  useLayoutEffect(() => {
+    if (focusedTabWasRemoved && availablePositions.length > 0) {
+      tabRefs.current[activeIndex]?.focus();
+    }
+  }, [activeIndex, availablePositions.length, focusedTabWasRemoved]);
 
   if (availablePositions.length === 0) {
     return null;
   }
-
-  const activeIndex = Math.min(selectedIndex, availablePositions.length - 1);
 
   const selectAndFocus = (index: number) => {
     const nextIndex = (index + availablePositions.length) % availablePositions.length;
@@ -61,7 +69,9 @@ export function GrowthTabs({ positions }: GrowthTabsProps) {
                   className="growth-tabs__tab"
                   id={tabId}
                   key={position.id}
+                  onBlur={() => setFocusedTabId(null)}
                   onClick={() => setSelectedIndex(index)}
+                  onFocus={() => setFocusedTabId(position.id)}
                   onKeyDown={(event) => handleKeyDown(event, index)}
                   ref={(node) => { tabRefs.current[index] = node; }}
                   role="tab"

@@ -131,4 +131,39 @@ describe('HomePage', () => {
     expect(screen.getByRole('tab', { name: '신입 트레이너' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByRole('tabpanel')).toBeVisible();
   });
+
+  it('restores focus to the active remaining tab when the focused tab is removed', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<GrowthTabs positions={publishedFixture.positions} />);
+
+    const experiencedTab = screen.getByRole('tab', { name: '경력 트레이너' });
+    await user.click(experiencedTab);
+    expect(experiencedTab).toHaveFocus();
+
+    rerender(<GrowthTabs positions={[publishedFixture.positions[0]]} />);
+
+    expect(screen.getByRole('tab', { name: '신입 트레이너' })).toHaveFocus();
+  });
+
+  it('does not expose a representative fragment for directly supplied unpublished profiles', () => {
+    const directContent = {
+      ...publishedFixture,
+      representatives: publishedFixture.representatives.map((person) => ({
+        ...person,
+        published: false,
+      })),
+    };
+
+    render(
+      <MemoryRouter>
+        <PublicHeader content={directContent} />
+        <HomePage content={directContent} />
+        <PublicFooter />
+      </MemoryRouter>,
+    );
+
+    expect(screen.queryByRole('link', { name: '대표 소개' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: '대표 소개' })).not.toBeInTheDocument();
+    expectEveryLocalFragmentToResolve();
+  });
 });

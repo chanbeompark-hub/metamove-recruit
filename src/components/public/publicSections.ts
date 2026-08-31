@@ -22,7 +22,7 @@ export function getRenderedPublicSectionIds(content: PublishedSiteContent) {
     ({ requirements, preferences }) => requirements.length > 0 || preferences.length > 0,
   );
   const hasRepresentatives = content.representatives.some(
-    ({ name, role }) => name.trim() && role.trim(),
+    ({ name, role, published }) => published && name.trim() && role.trim(),
   );
   const hasBenefits = content.benefits.some(
     ({ title, description }) => title.trim() && description.trim(),
