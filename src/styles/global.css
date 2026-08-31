@@ -36,8 +36,8 @@ svg {
 }
 
 *:focus-visible {
-  outline: 2px solid var(--color-action);
-  outline-offset: 3px;
+  outline: var(--focus-outline-width) solid var(--color-action);
+  outline-offset: var(--focus-outline-offset);
   box-shadow: var(--focus-ring);
 }
 
@@ -192,8 +192,10 @@ svg {
   .public-nav {
     display: block;
     width: 100%;
+    padding: calc(var(--focus-outline-width) + var(--focus-outline-offset) + 1px);
     overflow-x: auto;
     overscroll-behavior-inline: contain;
+    scroll-padding-inline: calc(var(--focus-outline-width) + var(--focus-outline-offset) + 1px);
     scrollbar-width: thin;
   }
 

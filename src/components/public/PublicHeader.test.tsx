@@ -19,14 +19,14 @@ describe('PublicHeader', () => {
     expect(screen.getByRole('link', { name: '지원하기' })).toHaveAttribute('href', '/apply');
 
     const sectionTargets = [
-      '#metamove',
-      '#vision',
-      '#representatives',
-      '#benefits-rules',
-      '#positions',
+      '/#metamove',
+      '/#vision',
+      '/#representatives',
+      '/#benefits-rules',
+      '/#positions',
     ];
     const sectionLinks = within(navigation).getAllByRole('link').filter((link) =>
-      sectionTargets.includes(link.getAttribute('href') ?? ''),
+      link.getAttribute('href')?.startsWith('/#'),
     );
     expect(sectionLinks.map((link) => link.getAttribute('href'))).toEqual(sectionTargets);
 
