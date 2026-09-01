@@ -1,8 +1,8 @@
-import type { Benefit, WorkRule } from '../../content/types';
+import type { PublishedSiteContent } from '../../content/types';
 
 type BenefitsAndRulesProps = {
-  benefits: Benefit[];
-  rules: WorkRule[];
+  benefits: PublishedSiteContent['benefits'];
+  rules: PublishedSiteContent['rules'];
 };
 
 export function BenefitsAndRules({ benefits, rules }: BenefitsAndRulesProps) {

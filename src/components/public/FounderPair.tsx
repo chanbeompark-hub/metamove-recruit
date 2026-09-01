@@ -1,12 +1,12 @@
-import type { Representative } from '../../content/types';
+import type { PublishedSiteContent } from '../../content/types';
 
 type FounderPairProps = {
-  people: Representative[];
+  people: PublishedSiteContent['representatives'];
 };
 
 export function FounderPair({ people }: FounderPairProps) {
   const availablePeople = people
-    .filter(({ name, role, published }) => published && name.trim() && role.trim())
+    .filter(({ name, role }) => name.trim() && role.trim())
     .slice(0, 2);
 
   if (availablePeople.length === 0) {

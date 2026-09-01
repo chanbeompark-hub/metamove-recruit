@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom';
-import type { SiteContent } from '../../content/types';
+import type { PublishedSiteContent } from '../../content/types';
+import { ResponsiveMediaImage } from './ResponsiveMediaImage';
 import './evidence.css';
 
-type HeroContent = SiteContent['hero'];
+type HeroContent = PublishedSiteContent['hero'];
 
 type HeroEvidenceProps = {
   hero: HeroContent;
@@ -30,7 +31,7 @@ export function HeroEvidence({ hero }: HeroEvidenceProps) {
 
         {hasApprovedMedia ? (
           <figure className="hero-evidence__field hero-evidence__field--media">
-            <img src={hero.imageSrc} alt={hero.imageAlt} />
+            <ResponsiveMediaImage media={hero} />
           </figure>
         ) : (
           <div className="hero-evidence__field hero-evidence__field--structural" aria-hidden="true">

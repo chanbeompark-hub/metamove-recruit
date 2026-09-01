@@ -36,10 +36,10 @@
 
 | Reference evidence | Extracted principle | Local component | Motion/state | Mobile translation | Acceptance evidence |
 |---|---|---|---|---|---|
-| Equinox 홈과 Personal Trainer 구간 | 채용 행동 뒤에 교육·성장 근거 제공 | Hero, ValueIndex, GrowthTabs | 가치 01→03 순차 공개 | 세로 스택과 고정 지원 CTA | `.superpowers/sdd/2026-08-31-metamove-public-site/artifacts/public-home-1440.png`, `public-home-390.png`; 320/360/390/430/1440px E2E에서 CTA 노출·비겹침과 문서 overflow 0 확인 |
+| Equinox 홈과 Personal Trainer 구간 | 채용 행동 뒤에 교육·성장 근거 제공 | Hero, ValueIndex, GrowthTabs | 가치 01→03 순차 공개 | 세로 스택과 고정 지원 CTA | 테스트 전용 전체 콘텐츠 캡처 `.superpowers/sdd/2026-08-31-metamove-public-site/artifacts/public-fixture-1440.png`, `public-fixture-390.png`; 320/360/390/430/1440px E2E에서 모든 섹션·탭·표·대표 2인·fragment·CTA와 문서 overflow 0 확인 |
 | On 미션·사람·문화 구간 | 실제 미디어로 브랜드 신념 증명 | CenterStory, FounderPair | 사진 마스크와 캡션 순차 공개 | 인물별 세로 교차 배치 | 승인된 센터·대표 미디어가 아직 없어 해당 섹션은 공개 DOM에서 숨김; 캡처에서 빈 제목·대체 사진 없음 확인 |
 | GOV.UK Check answers | 제출 전 요약·수정·확정 | ApplicationReview | 수정 후 리뷰 단계 복귀 | 키·값·수정 링크 세로 배치 | 이번 공개 사이트 범위에서는 `/apply` 이동과 복귀 fragment만 E2E 확인; 단계형 검토 화면은 후속 지원서 계획 범위 |
-| Magic UI Number Ticker | 숫자에만 목적 있는 짧은 전환 | ValueIndex | 0→인덱스, 400–650ms | 정적 숫자 또는 단축 전환 | Playwright `page.emulateMedia({ reducedMotion: 'reduce' })`에서 Hero/Evidence 7개 대상의 계산값 `animation-name: none`, `transform: none`, `opacity: 1`, `transition-duration: 0s` 확인 |
+| Magic UI Number Ticker | 숫자에만 목적 있는 짧은 전환 | ValueIndex | 0→인덱스, 400–650ms | 정적 숫자 또는 단축 전환 | Playwright가 정상 모션의 CSS Animation을 시작·종료 시점으로 직접 이동해 0→최종 변환을 확인하고, reduced-motion에서는 접근성 DOM의 `01/02/03` 최종 문자열과 `animation-name: none`을 확인 |
 
 ## Signature composition and component
 
@@ -69,7 +69,7 @@
 ## Copy ladder
 
 1. Tension: 좋은 트레이너가 오래 성장하기 어려운 환경.
-2. Promise: `좋은 트레이너가 오래 성장하는 시스템.`
+2. Promise: `움직임을 바꾸는 트레이너, 메타무브짐에서 함께 성장하세요`
 3. Proof: 실제 센터, 교육·운영을 담당하는 대표 2인, 확정된 교육·보상·규정.
 4. Choice: 신입과 경력 트레이너에게 각각 제공되는 성장 경로와 모집 조건.
 5. Action: `채용 포지션 보기` → `지원서 작성하기`.
@@ -99,17 +99,17 @@
 
 - Viewports: 320 / 360 / 390 / 430 / desktop.
 - Desktop media behavior: 실제 센터 사진의 초점 영역을 유지하며 텍스트 안전 영역과 2열로 배치한다.
-- Mobile media behavior: 사진과 텍스트를 순서대로 쌓고, 대표 사진은 인물 얼굴이 잘리지 않는 별도 모바일 크롭을 사용한다.
+- Mobile media behavior: Hero와 센터는 승인된 모바일 전용 소스 또는 데스크톱·모바일 초점 메타데이터를 사용해 사진과 텍스트를 순서대로 쌓고, 대표 사진은 인물 얼굴이 잘리지 않는 별도 모바일 크롭을 사용한다.
 - Scroll reveal grammar: 구조선 → 인덱스 → 증거의 한 가지 순서를 반복한다.
 - Reduced-motion final state: 모든 정보가 즉시 최종 위치와 값으로 표시되고 자동 스크롤·카운트업을 사용하지 않는다.
 - Text-clipping viewports: 320/360/390/430px에서 한국어 헤드라인, 상태표시, 버튼 라벨의 잘림과 가로 스크롤을 허용하지 않는다.
 
 ## Verification captures
 
-- 공개 홈 전체 화면: `.superpowers/sdd/2026-08-31-metamove-public-site/artifacts/public-home-1440.png`, `.superpowers/sdd/2026-08-31-metamove-public-site/artifacts/public-home-390.png`.
-- 320/360/390/430/1440px: `e2e/public-site.spec.ts`에서 문서 가로 overflow, CTA 가시성, 모바일 footer 비겹침, safe-area 예약 공간 확인.
+- 공개 구조 전체 화면: 프로덕션에 포함되지 않는 전체 콘텐츠 픽스처로 `.superpowers/sdd/2026-08-31-metamove-public-site/artifacts/public-fixture-1440.png`, `.superpowers/sdd/2026-08-31-metamove-public-site/artifacts/public-fixture-390.png` 확인.
+- 320/360/390/430/1440px: `e2e/public-site.spec.ts`에서 모든 공개 섹션, 성장 탭, 근무 규정 표, 대표 2인, fragment, CTA, 반응형 미디어 source/초점, 문서 가로 overflow, 모바일 footer 비겹침, safe-area 예약 공간 확인.
 - 키보드·경로: skip-link 즉시 노출과 2px focus outline, 렌더된 `/#...` fragment 대상, `/apply` 이동 확인.
-- reduced-motion: HeroEvidence 구조선·헤드라인·축·마커와 EvidenceRail 항목·라벨·화살표의 브라우저 계산 스타일이 모두 최종 상태임을 확인.
+- normal/reduced-motion: EvidenceRail의 접근성 DOM에는 최종 `01/02/03`을 유지하고, 정상 모션은 Web Animations API로 0→최종 숫자 위치를 결정적으로 확인하며 reduced-motion은 최종 문자열을 즉시 표시하고 애니메이션 레이어를 숨김.
 - 지원서: 빈 상태, 정상 작성, 오류, 제출 전 검토, 제출 완료.
 - 관리자: 신규 지원자 목록, 상세 검토, 상태 변경, 접근 거부.
 - 시그니처 모션: 첫 화면 조립과 EvidenceRail 진행을 5–10초로 기록.

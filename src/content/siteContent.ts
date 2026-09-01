@@ -2,7 +2,7 @@ import type { SiteContent } from './types';
 
 export const siteContent: SiteContent = {
   hero: {
-    headline: '좋은 트레이너가 오래 성장하는 시스템.',
+    headline: '움직임을 바꾸는 트레이너, 메타무브짐에서 함께 성장하세요',
     published: true,
   },
   evidence: [
@@ -15,10 +15,21 @@ export const siteContent: SiteContent = {
     body: '',
     published: false,
   },
+  expansionVision: {
+    title: '',
+    body: '',
+    published: false,
+  },
   representatives: [],
+  growthTracks: [],
   benefits: [],
   rules: [],
   positions: [],
+  hiringProcess: {
+    title: '',
+    steps: [],
+    published: false,
+  },
 };
 
 export default siteContent;

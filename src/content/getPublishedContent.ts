@@ -1,19 +1,40 @@
-import type { PublishedSiteContent, SiteContent } from './types';
+import type { HeroContent, PublishedSiteContent, SiteContent } from './types';
+
+export const APPROVED_HERO_FALLBACK: HeroContent = {
+  headline: '움직임을 바꾸는 트레이너, 메타무브짐에서 함께 성장하세요',
+};
 
 export function getPublishedContent(content: SiteContent): PublishedSiteContent {
   const center = content.center.published
     ? omitPublicationFlag(content.center)
     : undefined;
+  const expansionVision = content.expansionVision.published
+    ? omitPublicationFlag(content.expansionVision)
+    : undefined;
+  const hiringProcess = content.hiringProcess.published
+    ? omitPublicationFlag(content.hiringProcess)
+    : undefined;
 
   return {
-    hero: content.hero,
-    evidence: content.evidence.filter(({ published }) => published === true),
+    hero: content.hero.published
+      ? omitPublicationFlag(content.hero)
+      : APPROVED_HERO_FALLBACK,
+    evidence: publishEntries(content.evidence),
     center,
-    representatives: content.representatives.filter(({ published }) => published === true),
-    benefits: content.benefits.filter(({ published }) => published === true),
-    rules: content.rules.filter(({ published }) => published === true),
-    positions: content.positions.filter(({ published }) => published === true),
+    expansionVision,
+    representatives: publishEntries(content.representatives),
+    growthTracks: publishEntries(content.growthTracks),
+    benefits: publishEntries(content.benefits),
+    rules: publishEntries(content.rules),
+    positions: publishEntries(content.positions),
+    hiringProcess,
   };
+}
+
+function publishEntries<T extends { published: boolean }>(entries: T[]) {
+  return entries
+    .filter(({ published }) => published === true)
+    .map(omitPublicationFlag);
 }
 
 function omitPublicationFlag<T extends { published: boolean }>(

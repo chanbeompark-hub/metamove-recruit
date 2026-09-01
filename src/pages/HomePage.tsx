@@ -1,8 +1,10 @@
 import { BenefitsAndRules } from '../components/public/BenefitsAndRules';
 import { CenterStory } from '../components/public/CenterStory';
 import { EvidenceRail } from '../components/public/EvidenceRail';
+import { ExpansionVision } from '../components/public/ExpansionVision';
 import { FounderPair } from '../components/public/FounderPair';
 import { GrowthTabs } from '../components/public/GrowthTabs';
+import { HiringProcess } from '../components/public/HiringProcess';
 import { HeroEvidence } from '../components/public/HeroEvidence';
 import { PositionSummary } from '../components/public/PositionSummary';
 import { getRenderedPublicSectionIds, resolveEvidenceLinks } from '../components/public/publicSections';
@@ -22,11 +24,15 @@ export function HomePage({ content }: HomePageProps) {
       <HeroEvidence hero={content.hero} />
       <EvidenceRail items={evidenceItems} />
       {content.center && <CenterStory center={content.center} />}
+      {renderedSectionIds.has('vision') && content.expansionVision && (
+        <ExpansionVision vision={content.expansionVision} />
+      )}
       {renderedSectionIds.has('representatives') && <FounderPair people={content.representatives} />}
-      {renderedSectionIds.has('vision') && <GrowthTabs positions={content.positions} />}
+      {renderedSectionIds.has('growth') && <GrowthTabs tracks={content.growthTracks} />}
       {renderedSectionIds.has('benefits-rules') && (
         <BenefitsAndRules benefits={content.benefits} rules={content.rules} />
       )}
+      {content.hiringProcess && <HiringProcess process={content.hiringProcess} />}
       {renderedSectionIds.has('positions') && <PositionSummary positions={content.positions} />}
     </main>
   );

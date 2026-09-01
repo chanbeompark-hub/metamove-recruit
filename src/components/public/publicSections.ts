@@ -1,16 +1,19 @@
-import type { EvidenceItem, PublishedSiteContent } from '../../content/types';
+import type { PublishedSiteContent } from '../../content/types';
 
 export type PublicSectionId =
   | 'metamove'
   | 'vision'
+  | 'growth'
   | 'representatives'
   | 'benefits-rules'
   | 'positions';
 
-export type ResolvedEvidenceItem = Omit<EvidenceItem, 'href'> & { href?: string };
+type PublishedEvidenceItem = PublishedSiteContent['evidence'][number];
 
-const evidenceTargetByLabel: Record<EvidenceItem['label'], PublicSectionId> = {
-  성장: 'vision',
+export type ResolvedEvidenceItem = Omit<PublishedEvidenceItem, 'href'> & { href?: string };
+
+const evidenceTargetByLabel: Record<PublishedEvidenceItem['label'], PublicSectionId> = {
+  성장: 'growth',
   보상: 'benefits-rules',
   확장: 'vision',
 };
@@ -18,18 +21,22 @@ const evidenceTargetByLabel: Record<EvidenceItem['label'], PublicSectionId> = {
 export function getRenderedPublicSectionIds(content: PublishedSiteContent) {
   const ids = new Set<PublicSectionId>(['metamove']);
   const renderablePositions = content.positions.filter(({ title }) => title.trim());
-  const hasGrowthContent = renderablePositions.some(
-    ({ requirements, preferences }) => requirements.length > 0 || preferences.length > 0,
+  const hasExpansionVision = Boolean(
+    content.expansionVision?.title.trim() && content.expansionVision.body.trim(),
+  );
+  const hasGrowthContent = content.growthTracks.some(
+    ({ title, outcomes }) => title.trim() && outcomes.length > 0,
   );
   const hasRepresentatives = content.representatives.some(
-    ({ name, role, published }) => published && name.trim() && role.trim(),
+    ({ name, role }) => name.trim() && role.trim(),
   );
   const hasBenefits = content.benefits.some(
     ({ title, description }) => title.trim() && description.trim(),
   );
   const hasRules = content.rules.some(({ label, value }) => label.trim() && value.trim());
 
-  if (hasGrowthContent) ids.add('vision');
+  if (hasExpansionVision) ids.add('vision');
+  if (hasGrowthContent) ids.add('growth');
   if (hasRepresentatives) ids.add('representatives');
   if (hasBenefits || hasRules) ids.add('benefits-rules');
   if (renderablePositions.length > 0) ids.add('positions');
@@ -38,12 +45,12 @@ export function getRenderedPublicSectionIds(content: PublishedSiteContent) {
 }
 
 export function resolveEvidenceLinks(
-  items: EvidenceItem[],
+  items: PublishedSiteContent['evidence'],
   renderedSectionIds: ReadonlySet<PublicSectionId>,
 ): ResolvedEvidenceItem[] {
   return items.map((item) => {
     const targetId = evidenceTargetByLabel[item.label];
-    const href = renderedSectionIds.has(targetId) ? `/#${targetId}` : undefined;
+    const href = renderedSectionIds.has(targetId) ? `#${targetId}` : undefined;
     return { ...item, href };
   });
 }

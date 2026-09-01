@@ -36,11 +36,37 @@ describe('HomePage', () => {
     expect(screen.queryByText('승인되지 않은 포지션')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('tab', { name: '경력 트레이너' }));
-    expect(screen.getByRole('tabpanel')).toHaveTextContent('리더십');
+    expect(screen.getByRole('tabpanel')).toHaveTextContent('테스트 리더십 성장');
+    expect(screen.getByRole('tabpanel')).not.toHaveTextContent('테스트 현장 경험');
+  });
+
+  it('renders expansion, post-hire growth, recruitment qualifications, and hiring process with distinct meanings', async () => {
+    const user = userEvent.setup();
+    render(<MemoryRouter><HomePage content={publishedFixture} /></MemoryRouter>);
+
+    expect(screen.getByRole('heading', { name: '테스트용 확장 비전' })).toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: '경력 트레이너' }));
+    const growthPanel = screen.getByRole('tabpanel');
+    expect(growthPanel).toHaveTextContent('입사 후 기대 성장');
+    expect(growthPanel).toHaveTextContent('테스트 리더십 성장');
+    expect(growthPanel).not.toHaveTextContent('자격 조건');
+
+    const positions = screen.getByRole('region', { name: '채용 포지션' });
+    expect(positions).toHaveTextContent('자격 조건');
+    expect(positions).toHaveTextContent('테스트 현장 경험');
+
+    const hiringProcess = screen.getByRole('region', { name: '테스트용 채용 절차' });
+    expect(hiringProcess).toHaveTextContent('테스트 서류 검토');
+    expect(hiringProcess).toHaveTextContent('테스트 면접');
   });
 
   it('renders the available approved representative without inventing a counterpart', () => {
-    render(<MemoryRouter><HomePage content={publishedFixture} /></MemoryRouter>);
+    const singleRepresentativeContent = {
+      ...publishedFixture,
+      representatives: publishedFixture.representatives.slice(0, 1),
+    };
+    render(<MemoryRouter><HomePage content={singleRepresentativeContent} /></MemoryRouter>);
 
     const representatives = screen.getByRole('region', { name: '대표 소개' });
     expect(within(representatives).getByRole('heading', { name: '김메타' })).toBeInTheDocument();
@@ -73,10 +99,11 @@ describe('HomePage', () => {
     render(<MemoryRouter><HomePage content={getPublishedContent(siteContent)} /></MemoryRouter>);
 
     expect(screen.queryByRole('region', { name: '센터 소개' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('region', { name: '성장과 비전' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: '입사 후 성장 경로' })).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: '대표 소개' })).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: '혜택과 근무 규정' })).not.toBeInTheDocument();
     expect(screen.queryByRole('region', { name: '채용 포지션' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: /채용 절차/ })).not.toBeInTheDocument();
   });
 
   it('renders only local fragment links that resolve in the production page', () => {
@@ -122,10 +149,10 @@ describe('HomePage', () => {
 
   it('keeps one selected tab and panel when the available positions shrink', async () => {
     const user = userEvent.setup();
-    const { rerender } = render(<GrowthTabs positions={publishedFixture.positions} />);
+    const { rerender } = render(<GrowthTabs tracks={publishedFixture.growthTracks} />);
 
     await user.click(screen.getByRole('tab', { name: '경력 트레이너' }));
-    rerender(<GrowthTabs positions={[publishedFixture.positions[0]]} />);
+    rerender(<GrowthTabs tracks={[publishedFixture.growthTracks[0]]} />);
 
     expect(screen.getAllByRole('tab', { selected: true })).toHaveLength(1);
     expect(screen.getByRole('tab', { name: '신입 트레이너' })).toHaveAttribute('aria-selected', 'true');
@@ -134,24 +161,21 @@ describe('HomePage', () => {
 
   it('restores focus to the active remaining tab when the focused tab is removed', async () => {
     const user = userEvent.setup();
-    const { rerender } = render(<GrowthTabs positions={publishedFixture.positions} />);
+    const { rerender } = render(<GrowthTabs tracks={publishedFixture.growthTracks} />);
 
     const experiencedTab = screen.getByRole('tab', { name: '경력 트레이너' });
     await user.click(experiencedTab);
     expect(experiencedTab).toHaveFocus();
 
-    rerender(<GrowthTabs positions={[publishedFixture.positions[0]]} />);
+    rerender(<GrowthTabs tracks={[publishedFixture.growthTracks[0]]} />);
 
     expect(screen.getByRole('tab', { name: '신입 트레이너' })).toHaveFocus();
   });
 
-  it('does not expose a representative fragment for directly supplied unpublished profiles', () => {
+  it('does not expose a representative fragment when no published profiles are supplied', () => {
     const directContent = {
       ...publishedFixture,
-      representatives: publishedFixture.representatives.map((person) => ({
-        ...person,
-        published: false,
-      })),
+      representatives: [],
     };
 
     render(

@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
-import type { Position } from '../../content/types';
+import type { PublishedSiteContent } from '../../content/types';
 
 type PositionSummaryProps = {
-  positions: Position[];
+  positions: PublishedSiteContent['positions'];
 };
 
 export function PositionSummary({ positions }: PositionSummaryProps) {

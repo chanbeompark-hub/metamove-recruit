@@ -4,7 +4,6 @@ import { getRenderedPublicSectionIds, type PublicSectionId } from './publicSecti
 
 const navigationItems = [
   { label: '메타무브짐', id: 'metamove' },
-  { label: '성장과 비전', id: 'vision' },
   { label: '대표 소개', id: 'representatives' },
   { label: '혜택·규정', id: 'benefits-rules' },
   { label: '채용 포지션', id: 'positions' },
@@ -16,20 +15,28 @@ type PublicHeaderProps = {
 
 export function PublicHeader({ content }: PublicHeaderProps) {
   const renderedSectionIds = getRenderedPublicSectionIds(content);
+  const growthAndVisionTarget = renderedSectionIds.has('vision')
+    ? 'vision'
+    : renderedSectionIds.has('growth') ? 'growth' : undefined;
+  const visibleNavigationItems = [
+    navigationItems[0],
+    ...(growthAndVisionTarget ? [{ label: '성장과 비전', id: growthAndVisionTarget }] : []),
+    ...navigationItems.slice(1),
+  ];
 
   return (
     <header className="public-header">
       <a className="skip-link" href="#main-content">본문 바로가기</a>
       <div className="public-header__inner">
-        <a className="public-header__brand" href="/#metamove" aria-label="메타무브짐 홈">
+        <a className="public-header__brand" href="#metamove" aria-label="메타무브짐 홈">
           메타무브짐
         </a>
         <nav className="public-nav" aria-label="주요 메뉴">
           <div className="public-nav__sections">
-            {navigationItems.filter((item) => renderedSectionIds.has(item.id as PublicSectionId)).map((item) => (
+            {visibleNavigationItems.filter((item) => renderedSectionIds.has(item.id as PublicSectionId)).map((item) => (
               <a
                 className="public-nav__section-link"
-                href={`/#${item.id}`}
+                href={`#${item.id}`}
                 key={item.id}
                 onFocus={(event) => event.currentTarget.scrollIntoView({ block: 'nearest', inline: 'nearest' })}
               >

@@ -10,9 +10,25 @@ export function EvidenceRail({ items }: EvidenceRailProps) {
   return (
     <ol className="evidence-rail" aria-label="채용 핵심 기준">
       {items.map((item, position) => {
+        const finalDigit = Number.parseInt(item.index, 10);
+        const indexStyle = {
+          '--evidence-index-offset': `-${finalDigit}em`,
+        } as CSSProperties;
         const details = (
           <>
-            <span className="evidence-rail__index">{item.index}</span>
+            <span className="evidence-rail__index">
+              <span className="evidence-rail__index-final">{item.index}</span>
+              <span className="evidence-rail__index-motion" aria-hidden="true">
+                <span>0</span>
+                <span className="evidence-rail__index-digit-window">
+                  <span className="evidence-rail__index-digit-strip" style={indexStyle}>
+                    {Array.from({ length: finalDigit + 1 }, (_, digit) => (
+                      <span key={digit}>{digit}</span>
+                    ))}
+                  </span>
+                </span>
+              </span>
+            </span>
             <strong className="evidence-rail__label">{item.label}</strong>
             {item.description && (
               <p className="evidence-rail__description">{item.description}</p>

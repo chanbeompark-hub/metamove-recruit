@@ -1,4 +1,18 @@
 export type PublishableSection<T> = T & { published: boolean };
+export type Published<T extends { published: boolean }> = Omit<T, 'published'>;
+
+export type ResponsiveMedia = {
+  imageSrc?: string;
+  imageAlt?: string;
+  mobileImageSrc?: string;
+  desktopObjectPosition?: string;
+  mobileObjectPosition?: string;
+};
+
+export type HeroContent = ResponsiveMedia & {
+  headline: string;
+  supportingCopy?: string;
+};
 
 export type Representative = {
   id: string;
@@ -34,6 +48,24 @@ export type Position = {
   published: boolean;
 };
 
+export type ExpansionVision = PublishableSection<{
+  title: string;
+  body: string;
+}>;
+
+export type GrowthTrack = {
+  id: string;
+  title: string;
+  level: 'entry' | 'experienced';
+  outcomes: string[];
+  published: boolean;
+};
+
+export type HiringProcess = PublishableSection<{
+  title: string;
+  steps: string[];
+}>;
+
 export type EvidenceItem = {
   index: '01' | '02' | '03';
   label: '성장' | '보상' | '확장';
@@ -43,25 +75,30 @@ export type EvidenceItem = {
 };
 
 export type SiteContent = {
-  hero: PublishableSection<{
-    headline: string;
-    supportingCopy?: string;
-    imageSrc?: string;
-    imageAlt?: string;
-  }>;
+  hero: PublishableSection<HeroContent>;
   evidence: EvidenceItem[];
-  center: PublishableSection<{
+  center: PublishableSection<ResponsiveMedia & {
     title: string;
     body: string;
-    imageSrc?: string;
-    imageAlt?: string;
   }>;
+  expansionVision: ExpansionVision;
   representatives: Representative[];
+  growthTracks: GrowthTrack[];
   benefits: Benefit[];
   rules: WorkRule[];
   positions: Position[];
+  hiringProcess: HiringProcess;
 };
 
-export type PublishedSiteContent = Omit<SiteContent, 'center'> & {
-  center?: Omit<SiteContent['center'], 'published'>;
+export type PublishedSiteContent = {
+  hero: HeroContent;
+  evidence: Published<EvidenceItem>[];
+  center?: Published<SiteContent['center']>;
+  expansionVision?: Published<ExpansionVision>;
+  representatives: Published<Representative>[];
+  growthTracks: Published<GrowthTrack>[];
+  benefits: Published<Benefit>[];
+  rules: Published<WorkRule>[];
+  positions: Published<Position>[];
+  hiringProcess?: Published<HiringProcess>;
 };

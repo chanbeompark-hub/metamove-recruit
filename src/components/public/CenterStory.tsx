@@ -1,4 +1,5 @@
 import type { PublishedSiteContent } from '../../content/types';
+import { ResponsiveMediaImage } from './ResponsiveMediaImage';
 
 type CenterStoryProps = {
   center: NonNullable<PublishedSiteContent['center']>;
@@ -22,7 +23,7 @@ export function CenterStory({ center }: CenterStoryProps) {
         </div>
         {hasApprovedMedia && (
           <figure className="center-story__media">
-            <img src={center.imageSrc} alt={center.imageAlt} />
+            <ResponsiveMediaImage media={center} />
           </figure>
         )}
       </div>

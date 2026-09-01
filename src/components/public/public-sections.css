@@ -43,9 +43,45 @@
 }
 
 .center-story,
+.expansion-vision,
 .growth-tabs,
-.benefits-rules {
+.benefits-rules,
+.hiring-process {
   padding-block: var(--space-24);
+}
+
+.expansion-vision {
+  background: var(--color-mist);
+}
+
+.expansion-vision__grid,
+.hiring-process__grid {
+  display: grid;
+  grid-template-columns: minmax(14rem, 0.42fr) minmax(0, 1fr);
+  gap: clamp(var(--space-8), 7vw, var(--space-24));
+}
+
+.expansion-vision .public-section__header,
+.hiring-process .public-section__header {
+  display: block;
+  align-self: start;
+  border: 0;
+}
+
+.expansion-vision .public-section__header h2,
+.hiring-process .public-section__header h2 {
+  margin-block-start: var(--space-6);
+}
+
+.expansion-vision__body {
+  max-width: 42rem;
+  margin: 0;
+  padding-block-start: var(--space-6);
+  border-block-start: 1px solid var(--color-line);
+  color: var(--color-navy);
+  font-size: clamp(1.125rem, 2vw, 1.5rem);
+  white-space: pre-line;
+  word-break: keep-all;
 }
 
 .center-story__grid {
@@ -268,11 +304,38 @@
 .growth-tabs__panel {
   display: grid;
   min-height: 18rem;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-12);
   padding: var(--space-12) var(--space-6);
   background: var(--color-mist);
   animation: tab-panel-arrive 240ms ease-out both;
+}
+
+.hiring-process__steps {
+  margin: 0;
+  padding: 0;
+  border-block-start: 1px solid var(--color-line);
+  list-style: none;
+}
+
+.hiring-process__steps li {
+  display: grid;
+  min-height: 5rem;
+  grid-template-columns: 3.5rem minmax(0, 1fr);
+  align-items: center;
+  gap: var(--space-4);
+  border-bottom: 1px solid var(--color-line);
+}
+
+.hiring-process__steps span {
+  color: var(--color-action);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.hiring-process__steps strong {
+  color: var(--color-navy);
+  font-size: 1.125rem;
 }
 
 .growth-tabs__panel[hidden] {
@@ -482,8 +545,10 @@
   }
 
   .center-story,
+  .expansion-vision,
   .growth-tabs,
   .benefits-rules,
+  .hiring-process,
   .founder-pair,
   .position-summary {
     padding-block: var(--space-18);
@@ -498,6 +563,11 @@
   }
 
   .center-story__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .expansion-vision__grid,
+  .hiring-process__grid {
     grid-template-columns: 1fr;
   }
 
@@ -535,13 +605,11 @@
   }
 
   .growth-tabs__list {
-    display: flex;
-    overflow-x: auto;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .growth-tabs__tab {
-    min-width: 11rem;
-    flex: 1 0 auto;
+    min-width: 0;
   }
 
   .growth-tabs__panel {

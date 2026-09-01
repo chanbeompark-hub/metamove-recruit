@@ -1,23 +1,33 @@
 import { Route, Routes } from 'react-router-dom';
-import { MobileApplyBar } from '../components/public/MobileApplyBar';
-import { PublicFooter } from '../components/public/PublicFooter';
-import { PublicHeader } from '../components/public/PublicHeader';
 import { getPublishedContent } from '../content/getPublishedContent';
 import { siteContent } from '../content/siteContent';
+import { ApplicationLayout } from '../layouts/ApplicationLayout';
+import { MarketingLayout } from '../layouts/MarketingLayout';
 import { HomePage } from '../pages/HomePage';
+import { NotFoundPage } from '../pages/NotFoundPage';
 
 const publishedSiteContent = getPublishedContent(siteContent);
 
 export function App() {
   return (
-    <>
-      <PublicHeader content={publishedSiteContent} />
-      <Routes>
-        <Route path="/" element={<HomePage content={publishedSiteContent} />} />
-        <Route path="/apply" element={<main id="main-content" tabIndex={-1}><h1>지원서</h1></main>} />
-      </Routes>
-      <PublicFooter />
-      <MobileApplyBar />
-    </>
+    <Routes>
+      <Route
+        path="/"
+        element={(
+          <MarketingLayout content={publishedSiteContent}>
+            <HomePage content={publishedSiteContent} />
+          </MarketingLayout>
+        )}
+      />
+      <Route
+        path="/apply"
+        element={(
+          <ApplicationLayout>
+            <main id="main-content" tabIndex={-1}><h1>지원서</h1></main>
+          </ApplicationLayout>
+        )}
+      />
+      <Route path="*" element={<NotFoundPage />} />
+    </Routes>
   );
 }
