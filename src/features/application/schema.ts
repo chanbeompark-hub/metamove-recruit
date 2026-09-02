@@ -33,11 +33,59 @@ export const applicationSchema = z
     privacyConsent: z.literal(true),
   })
   .superRefine((value, context) => {
-    if (value.level === 'experienced' && value.careerHistory.length === 0) {
+    if (value.level === 'entry') {
+      if (value.careerMonths !== 0) {
+        context.addIssue({
+          code: 'custom',
+          path: ['careerMonths'],
+          message: '신입 지원자의 경력 기간은 0개월이어야 합니다.',
+        });
+      }
+      if (value.careerHistory.length > 0) {
+        context.addIssue({
+          code: 'custom',
+          path: ['careerHistory'],
+          message: '신입 지원자는 근무 이력을 입력할 수 없습니다.',
+        });
+      }
+    } else {
+      if (value.careerMonths <= 0) {
+        context.addIssue({
+          code: 'custom',
+          path: ['careerMonths'],
+          message: '경력자의 경력 기간은 1개월 이상이어야 합니다.',
+        });
+      }
+      if (value.careerHistory.length === 0) {
+        context.addIssue({
+          code: 'custom',
+          path: ['careerHistory'],
+          message: '경력자는 근무 이력을 한 개 이상 입력해주세요.',
+        });
+      } else if (
+        value.careerHistory.reduce((total, item) => total + item.months, 0) !==
+        value.careerMonths
+      ) {
+        context.addIssue({
+          code: 'custom',
+          path: ['careerMonths'],
+          message: '경력 기간과 근무 이력의 합계가 일치해야 합니다.',
+        });
+      }
+    }
+
+    if (new Set(value.certifications).size !== value.certifications.length) {
       context.addIssue({
         code: 'custom',
-        path: ['careerHistory'],
-        message: '경력자는 근무 이력을 한 개 이상 입력해주세요.',
+        path: ['certifications'],
+        message: '자격증은 중복해서 입력할 수 없습니다.',
+      });
+    }
+    if (new Set(value.specialties).size !== value.specialties.length) {
+      context.addIssue({
+        code: 'custom',
+        path: ['specialties'],
+        message: '전문 분야는 중복해서 입력할 수 없습니다.',
       });
     }
   });
