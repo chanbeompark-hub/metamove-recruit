@@ -191,6 +191,77 @@ describe('ApplicationPage', () => {
     await user.click(screen.getByRole('button', { name: '기본 정보 수정' }));
     expect(screen.getByRole('heading', { name: '기본 정보' })).toHaveFocus();
     expect(screen.getByLabelText('이름')).toHaveValue('리뷰지원');
-    expect(screen.getByRole('button', { name: '검토로 돌아가기' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '다음: 경력·자격' })).toBeInTheDocument();
+  });
+
+  it('routes a reviewed level change through experience validation before review', async () => {
+    const draft = {
+      name: '지원자', phone: '010-1234-5678', email: 'level-change@example.test',
+      level: 'entry', availableFrom: '2026-09-15', careerMonths: 0, careerHistory: [],
+      certifications: ['생활스포츠지도사'], specialties: ['웨이트'],
+      motivation: longAnswer, strengths: longAnswer, goals: longAnswer,
+    };
+    nativeSessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole('button', { name: '다음' }));
+    await user.click(screen.getByRole('button', { name: '다음' }));
+    await user.click(screen.getByRole('button', { name: '다음' }));
+    await user.upload(screen.getByLabelText('이력서'), new File(['r'], 'resume.pdf', { type: 'application/pdf' }));
+    await user.click(screen.getByRole('button', { name: '다음' }));
+
+    await user.click(screen.getByRole('button', { name: '기본 정보 수정' }));
+    await user.click(screen.getByLabelText('경력'));
+    await user.click(screen.getByRole('button', { name: /검토로 돌아가기|다음: 경력·자격/ }));
+
+    expect(screen.getByRole('heading', { name: '경력·자격' })).toHaveFocus();
+    expect(screen.queryByRole('heading', { name: '검토·제출' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '검토로 돌아가기' }));
+    expect(screen.getByRole('heading', { name: '경력·자격' })).toBeInTheDocument();
+    expect(screen.getByText('경력자는 근무 이력을 한 개 이상 입력해주세요.')).toBeInTheDocument();
+
+    await user.type(screen.getByLabelText('총 경력 기간(개월)'), '12');
+    await user.click(screen.getByRole('button', { name: '근무 이력 추가' }));
+    await user.type(screen.getByLabelText('근무처 1'), '가상 트레이닝 센터');
+    await user.type(screen.getByLabelText('담당 역할 1'), 'PT 트레이너');
+    await user.clear(screen.getByLabelText('근무 개월 1'));
+    await user.type(screen.getByLabelText('근무 개월 1'), '12');
+    await user.click(screen.getByRole('button', { name: '검토로 돌아가기' }));
+
+    expect(screen.getByRole('heading', { name: '검토·제출' })).toHaveFocus();
+    expect(screen.getByText('가상 트레이닝 센터 · PT 트레이너 · 12개월')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: '기본 정보 수정' }));
+    await user.click(screen.getByLabelText('신입'));
+    await user.click(screen.getByRole('button', { name: /검토로 돌아가기|다음: 경력·자격/ }));
+    expect(screen.queryByRole('button', { name: '근무 이력 추가' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '검토로 돌아가기' }));
+    expect(screen.getByRole('heading', { name: '검토·제출' })).toBeInTheDocument();
+    expect(screen.getByText('0개월')).toBeInTheDocument();
+    expect(screen.getByText('해당 없음')).toBeInTheDocument();
+  });
+
+  it('associates every invalid career row control with its own error message', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await completeBasicInfo(user, 'experienced');
+    await user.click(screen.getByRole('button', { name: '다음' }));
+    await user.type(screen.getByLabelText('총 경력 기간(개월)'), '12');
+    await user.click(screen.getByRole('button', { name: '근무 이력 추가' }));
+    await user.clear(screen.getByLabelText('근무 개월 1'));
+    await user.type(screen.getByLabelText('전문 분야 1'), '웨이트');
+    await user.click(screen.getByRole('button', { name: '다음' }));
+
+    const expectations = [
+      ['근무처 1', 'company-0-error'],
+      ['담당 역할 1', 'role-0-error'],
+      ['근무 개월 1', 'months-0-error'],
+    ] as const;
+    for (const [label, errorId] of expectations) {
+      const control = screen.getByLabelText(label);
+      expect(control).toHaveAttribute('aria-invalid', 'true');
+      expect(control).toHaveAttribute('aria-describedby', errorId);
+      expect(document.getElementById(errorId)).toBeVisible();
+    }
   });
 });

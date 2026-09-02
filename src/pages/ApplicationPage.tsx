@@ -126,6 +126,10 @@ export function ApplicationPage() {
     }
 
     persist();
+    if (editingFromReview && activeStep === 0) {
+      moveTo(1);
+      return;
+    }
     moveTo(editingFromReview ? 4 : Math.min(activeStep + 1, 4));
     setEditingFromReview(false);
   };
@@ -183,7 +187,9 @@ export function ApplicationPage() {
               <footer className="application-form__actions">
                 {activeStep > 0 && <button className="button button--secondary" type="button" onClick={goBack}>이전</button>}
                 <button className="button button--primary" type="button" onClick={advance}>
-                  {editingFromReview ? '검토로 돌아가기' : '다음'}
+                  {editingFromReview && activeStep === 0
+                    ? '다음: 경력·자격'
+                    : editingFromReview ? '검토로 돌아가기' : '다음'}
                 </button>
               </footer>
             )}

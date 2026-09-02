@@ -64,22 +64,50 @@ export function ExperienceStep() {
                 <div className="field-grid field-grid--history">
                   <div className="field-group">
                     <label htmlFor={`company-${index}`}>근무처 {index + 1}</label>
-                    <input id={`company-${index}`} {...register(`careerHistory.${index}.company`)} />
+                    <input
+                      id={`company-${index}`}
+                      {...register(`careerHistory.${index}.company`)}
+                      aria-invalid={Boolean(errors.careerHistory?.[index]?.company)}
+                      aria-describedby={errors.careerHistory?.[index]?.company ? `company-${index}-error` : undefined}
+                    />
+                    {errors.careerHistory?.[index]?.company && <p className="field-error" id={`company-${index}-error`}>근무처를 입력해주세요.</p>}
                   </div>
                   <div className="field-group">
                     <label htmlFor={`role-${index}`}>담당 역할 {index + 1}</label>
-                    <input id={`role-${index}`} {...register(`careerHistory.${index}.role`)} />
+                    <input
+                      id={`role-${index}`}
+                      {...register(`careerHistory.${index}.role`)}
+                      aria-invalid={Boolean(errors.careerHistory?.[index]?.role)}
+                      aria-describedby={errors.careerHistory?.[index]?.role ? `role-${index}-error` : undefined}
+                    />
+                    {errors.careerHistory?.[index]?.role && <p className="field-error" id={`role-${index}-error`}>담당 역할을 입력해주세요.</p>}
                   </div>
                   <div className="field-group">
                     <label htmlFor={`months-${index}`}>근무 개월 {index + 1}</label>
-                    <input id={`months-${index}`} type="number" min="1" max="600" inputMode="numeric" {...register(`careerHistory.${index}.months`, { valueAsNumber: true })} />
+                    <input
+                      id={`months-${index}`}
+                      type="number"
+                      min="1"
+                      max="600"
+                      inputMode="numeric"
+                      {...register(`careerHistory.${index}.months`, { valueAsNumber: true })}
+                      aria-invalid={Boolean(errors.careerHistory?.[index]?.months)}
+                      aria-describedby={errors.careerHistory?.[index]?.months ? `months-${index}-error` : undefined}
+                    />
+                    {errors.careerHistory?.[index]?.months && <p className="field-error" id={`months-${index}-error`}>근무 개월은 1개월 이상이어야 합니다.</p>}
                   </div>
                 </div>
                 <button className="text-button" type="button" onClick={() => history.remove(index)}>근무 이력 {index + 1} 삭제</button>
               </fieldset>
             ))}
           </div>
-          {errors.careerHistory && <p className="field-error">경력자는 완전한 근무 이력을 한 개 이상 입력해주세요.</p>}
+          {errors.careerHistory && (
+            <p className="field-error">
+              {history.fields.length === 0
+                ? '경력자는 근무 이력을 한 개 이상 입력해주세요.'
+                : '각 근무 이력의 필수 항목을 확인해주세요.'}
+            </p>
+          )}
         </section>
       ) : (
         <div className="entry-career-note">
