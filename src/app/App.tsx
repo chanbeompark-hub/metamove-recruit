@@ -4,6 +4,7 @@ import { siteContent } from '../content/siteContent';
 import { ApplicationLayout } from '../layouts/ApplicationLayout';
 import { MarketingLayout } from '../layouts/MarketingLayout';
 import { HomePage } from '../pages/HomePage';
+import { ApplicationPage } from '../pages/ApplicationPage';
 import { NotFoundPage } from '../pages/NotFoundPage';
 
 const publishedSiteContent = getPublishedContent(siteContent);
@@ -23,7 +24,7 @@ export function App() {
         path="/apply"
         element={(
           <ApplicationLayout>
-            <main id="main-content" tabIndex={-1}><h1>지원서</h1></main>
+            <ApplicationPage />
           </ApplicationLayout>
         )}
       />

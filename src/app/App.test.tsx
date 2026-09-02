@@ -18,7 +18,7 @@ describe('App', () => {
   it('uses an application layout without a self-pointing fixed application action', () => {
     render(<MemoryRouter initialEntries={['/apply']}><App /></MemoryRouter>);
 
-    expect(screen.getByRole('heading', { name: '지원서' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: '기본 정보' })).toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: '주요 메뉴' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('지원 안내')).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: '지원하기' })).not.toBeInTheDocument();
