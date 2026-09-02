@@ -410,7 +410,7 @@ test('absolute and relative fragment links resolve without leaving the SPA', asy
 
   await page.getByRole('link', { name: '지원서 작성하기' }).click();
   await expect(page).toHaveURL(/\/apply$/);
-  await expect(page.getByRole('heading', { name: '지원서' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '기본 정보' })).toBeVisible();
 
   await page.getByRole('link', { name: '메타무브짐 홈' }).click();
   await expect(page).toHaveURL(/\/$/);
@@ -421,7 +421,7 @@ test('application and future admin routes stay outside the marketing shell', asy
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/apply');
 
-  await expect(page.getByRole('heading', { name: '지원서' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '기본 정보' })).toBeVisible();
   await expect(page.getByRole('link', { name: '메타무브짐 홈' })).toHaveAttribute('href', '/');
   await expect(page.getByRole('navigation', { name: '주요 메뉴' })).toHaveCount(0);
   await expect(page.getByLabel('지원 안내')).toHaveCount(0);
