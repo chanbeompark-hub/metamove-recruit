@@ -3,7 +3,8 @@ import type { ChangeEvent } from 'react';
 type FileStepProps = {
   resumeFile: File | null;
   portfolioFile: File | null;
-  fileError: string | null;
+  resumeError: string | null;
+  portfolioError: string | null;
   onResumeChange: (file: File | null) => void;
   onPortfolioChange: (file: File | null) => void;
 };
@@ -11,7 +12,8 @@ type FileStepProps = {
 export function FileStep({
   resumeFile,
   portfolioFile,
-  fileError,
+  resumeError,
+  portfolioError,
   onResumeChange,
   onPortfolioChange,
 }: FileStepProps) {
@@ -38,12 +40,12 @@ export function FileStep({
           aria-label="이력서"
           type="file"
           accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-          aria-describedby={`file-guidance${fileError ? ' resume-error' : ''}`}
-          aria-invalid={Boolean(fileError)}
+          aria-describedby={`file-guidance${resumeError ? ' resume-error' : ''}`}
+          aria-invalid={Boolean(resumeError)}
           onChange={selectFile(onResumeChange)}
         />
         <p className="file-field__selection">{resumeFile ? `선택됨 · ${resumeFile.name}` : '선택된 파일이 없습니다.'}</p>
-        {fileError && <p className="field-error" id="resume-error">{fileError}</p>}
+        {resumeError && <p className="field-error" id="resume-error">{resumeError}</p>}
       </div>
       <div className="file-field" data-selected={portfolioFile ? 'true' : 'false'}>
         <div className="file-field__heading">
@@ -54,10 +56,12 @@ export function FileStep({
           id="portfolio-file"
           type="file"
           accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-          aria-describedby="file-guidance"
+          aria-describedby={`file-guidance${portfolioError ? ' portfolio-error' : ''}`}
+          aria-invalid={Boolean(portfolioError)}
           onChange={selectFile(onPortfolioChange)}
         />
         <p className="file-field__selection">{portfolioFile ? `선택됨 · ${portfolioFile.name}` : '추가로 보여줄 자료가 있다면 첨부해주세요.'}</p>
+        {portfolioError && <p className="field-error" id="portfolio-error">{portfolioError}</p>}
       </div>
     </div>
   );

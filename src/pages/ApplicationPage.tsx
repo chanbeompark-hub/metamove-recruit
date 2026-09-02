@@ -7,6 +7,7 @@ import { EssayStep } from '../features/application/components/EssayStep';
 import { ExperienceStep } from '../features/application/components/ExperienceStep';
 import { FileStep } from '../features/application/components/FileStep';
 import { ReviewStep } from '../features/application/components/ReviewStep';
+import { validateApplicationFile } from '../features/application/fileValidation';
 import { applicationSchema, type ApplicationInput } from '../features/application/schema';
 import { APPLICATION_STEPS } from '../features/application/steps';
 import { DRAFT_WARNING, loadDraft, saveDraft } from '../features/application/store';
@@ -56,7 +57,10 @@ export function ApplicationPage() {
   const [storageWarning, setStorageWarning] = useState<string | null>(initial.loadFailed ? DRAFT_WARNING : null);
   const [resumeFile, setResumeFile] = useState<File | null>(null);
   const [portfolioFile, setPortfolioFile] = useState<File | null>(null);
-  const [fileError, setFileError] = useState<string | null>(null);
+  const [fileErrors, setFileErrors] = useState<{
+    resume: string | null;
+    portfolio: string | null;
+  }>({ resume: null, portfolio: null });
   const headingRef = useRef<HTMLHeadingElement>(null);
   const errorSummaryRef = useRef<HTMLDivElement>(null);
   const form = useForm<ApplicationInput>({
@@ -93,7 +97,7 @@ export function ApplicationPage() {
 
   const moveTo = (step: number) => {
     setShowErrorSummary(false);
-    setFileError(null);
+    setFileErrors({ resume: null, portfolio: null });
     setActiveStep(step);
   };
 
@@ -119,10 +123,20 @@ export function ApplicationPage() {
 
   const advance = async () => {
     if (activeStep === 1) normalizeExperience();
-    if (activeStep === 3 && !resumeFile) {
-      setFileError('이력서를 첨부해주세요.');
-      setShowErrorSummary(true);
-      return;
+    if (activeStep === 3) {
+      const [resumeResult, portfolioResult] = await Promise.all([
+        validateApplicationFile(resumeFile, { required: true }),
+        validateApplicationFile(portfolioFile, { required: false }),
+      ]);
+      const nextFileErrors = {
+        resume: resumeResult.ok ? null : resumeResult.message,
+        portfolio: portfolioResult.ok ? null : portfolioResult.message,
+      };
+      setFileErrors(nextFileErrors);
+      if (nextFileErrors.resume || nextFileErrors.portfolio) {
+        setShowErrorSummary(true);
+        return;
+      }
     }
 
     const fieldsValid = await form.trigger(ACTIVE_FIELDS[activeStep], { shouldFocus: false });
@@ -180,9 +194,18 @@ export function ApplicationPage() {
                 <FileStep
                   resumeFile={resumeFile}
                   portfolioFile={portfolioFile}
-                  fileError={fileError}
-                  onResumeChange={(file) => { setResumeFile(file); setFileError(null); setShowErrorSummary(false); }}
-                  onPortfolioChange={setPortfolioFile}
+                  resumeError={fileErrors.resume}
+                  portfolioError={fileErrors.portfolio}
+                  onResumeChange={(file) => {
+                    setResumeFile(file);
+                    setFileErrors((errors) => ({ ...errors, resume: null }));
+                    setShowErrorSummary(false);
+                  }}
+                  onPortfolioChange={(file) => {
+                    setPortfolioFile(file);
+                    setFileErrors((errors) => ({ ...errors, portfolio: null }));
+                    setShowErrorSummary(false);
+                  }}
                 />
               </section>
               <section hidden={activeStep !== 4} aria-label="검토·제출">

@@ -269,6 +269,52 @@ select is(
   'service_role has quota RPC execute privilege'
 );
 select is(
+  pg_catalog.has_function_privilege(
+    'anon',
+    'public.insert_application_graph(jsonb)',
+    'EXECUTE'
+  ),
+  false,
+  'anon has no application graph RPC execute privilege'
+);
+select is(
+  pg_catalog.has_function_privilege(
+    'authenticated',
+    'public.insert_application_graph(jsonb)',
+    'EXECUTE'
+  ),
+  false,
+  'authenticated has no application graph RPC execute privilege'
+);
+select is(
+  pg_catalog.has_function_privilege(
+    'service_role',
+    'public.insert_application_graph(jsonb)',
+    'EXECUTE'
+  ),
+  true,
+  'service role has application graph RPC execute privilege'
+);
+select is(
+  (
+    select prosecdef
+      and proconfig = array['search_path=""']::text[]
+    from pg_catalog.pg_proc
+    where oid = 'public.insert_application_graph(jsonb)'::regprocedure
+  ),
+  true,
+  'application graph RPC is SECURITY DEFINER with exactly an empty fixed search_path'
+);
+select is(
+  (
+    select pg_catalog.pg_get_userbyid(proowner)
+    from pg_catalog.pg_proc
+    where oid = 'public.insert_application_graph(jsonb)'::regprocedure
+  ),
+  'postgres',
+  'application graph RPC has the trusted postgres owner'
+);
+select is(
   (
     select coalesce(bool_or(column_name in ('ip', 'ip_address', 'raw_ip', 'email')), false)
     from information_schema.columns
@@ -509,6 +555,111 @@ select throws_ok(
   'active admin cannot alter applicant personal data'
 );
 reset role;
+
+set local role service_role;
+select lives_ok(
+  $sql$
+    select public.insert_application_graph(
+      pg_catalog.jsonb_build_object(
+        'application', pg_catalog.jsonb_build_object(
+          'id', '30000000-0000-4000-8000-000000000001',
+          'receipt_code', 'RPC-ATOMIC-001',
+          'name', 'RPC가상지원자',
+          'phone', '010-2222-3333',
+          'email', 'rpc-applicant@example.test',
+          'level', 'entry',
+          'available_from', current_date::text,
+          'career_months', 0,
+          'specialties', pg_catalog.jsonb_build_array('웨이트 트레이닝'),
+          'certifications', '[]'::jsonb,
+          'privacy_consent_version', 'test-v1',
+          'privacy_consent_at', now()::text,
+          'retention_until', (now() + interval '30 days')::text
+        ),
+        'answers', pg_catalog.jsonb_build_array(
+          pg_catalog.jsonb_build_object(
+            'answer_key', 'motivation',
+            'answer_text', repeat('가', 100),
+            'answer_json', null,
+            'display_order', 1
+          )
+        ),
+        'files', pg_catalog.jsonb_build_array(
+          pg_catalog.jsonb_build_object(
+            'storage_path', 'applications/30000000-0000-4000-8000-000000000001/40000000-0000-4000-8000-000000000001.pdf',
+            'original_filename', 'rpc-resume.pdf',
+            'mime_type', 'application/pdf',
+            'size_bytes', 1024,
+            'file_kind', 'resume'
+          )
+        )
+      )
+    )
+  $sql$,
+  'service role can persist the complete application graph through one RPC'
+);
+reset role;
+
+select is(
+  (select count(*) from public.applications where receipt_code = 'RPC-ATOMIC-001'),
+  1::bigint,
+  'atomic graph RPC inserts one application'
+);
+select is(
+  (
+    select count(*)
+    from public.application_answers
+    where application_id = '30000000-0000-4000-8000-000000000001'
+  ),
+  1::bigint,
+  'atomic graph RPC inserts its answers'
+);
+select is(
+  (
+    select count(*)
+    from public.application_files
+    where application_id = '30000000-0000-4000-8000-000000000001'
+  ),
+  1::bigint,
+  'atomic graph RPC inserts its file metadata'
+);
+
+set local role service_role;
+select throws_ok(
+  $sql$
+    select public.insert_application_graph(
+      pg_catalog.jsonb_build_object(
+        'application', pg_catalog.jsonb_build_object(
+          'id', '30000000-0000-4000-8000-000000000002',
+          'receipt_code', 'RPC-ATOMIC-ROLLBACK',
+          'name', 'RPC경력지원자',
+          'phone', '010-4444-5555',
+          'email', 'rpc-experienced@example.test',
+          'level', 'experienced',
+          'available_from', current_date::text,
+          'career_months', 12,
+          'specialties', pg_catalog.jsonb_build_array('재활 트레이닝'),
+          'certifications', '[]'::jsonb,
+          'privacy_consent_version', 'test-v1',
+          'privacy_consent_at', now()::text,
+          'retention_until', (now() + interval '30 days')::text
+        ),
+        'answers', '[]'::jsonb,
+        'files', '[]'::jsonb
+      )
+    )
+  $sql$,
+  '23514',
+  null,
+  'invalid career graph rejects the entire RPC statement'
+);
+reset role;
+
+select is(
+  (select count(*) from public.applications where receipt_code = 'RPC-ATOMIC-ROLLBACK'),
+  0::bigint,
+  'failed graph RPC leaves no partial application parent'
+);
 
 set local role service_role;
 select throws_ok(

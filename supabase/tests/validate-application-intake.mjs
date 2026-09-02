@@ -3,6 +3,7 @@ import process from 'node:process';
 import { fileURLToPath, URL } from 'node:url';
 
 const migrationUrl = new URL('../migrations/0001_application_intake.sql', import.meta.url);
+const graphMigrationUrl = new URL('../migrations/0002_application_graph_rpc.sql', import.meta.url);
 const configUrl = new URL('../config.toml', import.meta.url);
 
 function stripComments(sql) {
@@ -171,9 +172,11 @@ const cascadeTables = [
 ];
 
 let migration;
+let graphMigration;
 let config;
 try {
   migration = readFileSync(migrationUrl, 'utf8');
+  graphMigration = readFileSync(graphMigrationUrl, 'utf8');
   config = readFileSync(configUrl, 'utf8');
 } catch (error) {
   globalThis.console.error(`STATIC FAIL: ${error.message}`);
@@ -181,7 +184,7 @@ try {
   process.exit(1);
 }
 
-const sql = normalize(migration);
+const sql = normalize(`${migration}\n${graphMigration}`);
 const failures = [];
 
 requireMatch(
@@ -317,6 +320,24 @@ requireMatch(
 requireMatch(
   failures,
   sql,
+  /create or replace function public\.insert_application_graph\(p_graph jsonb\).*security definer.*set search_path = ''.*insert into public\.applications.*insert into public\.application_answers.*public\.assert_application_career_graph.*insert into public\.application_files/s,
+  'application graph RPC must atomically insert the parent, answers, validated career graph, and files with a fixed search_path',
+);
+requireMatch(
+  failures,
+  sql,
+  /revoke all on function public\.insert_application_graph\(jsonb\) from public, anon, authenticated/,
+  'application graph RPC is not revoked from public, anon, and authenticated',
+);
+requireMatch(
+  failures,
+  sql,
+  /grant execute on function public\.insert_application_graph\(jsonb\) to service_role/,
+  'application graph RPC is not granted only to service_role',
+);
+requireMatch(
+  failures,
+  sql,
   /insert into storage\.buckets.*'application-files'.*false.*10485760/s,
   'private application-files bucket or 10 MiB limit is missing',
 );
@@ -390,5 +411,5 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-globalThis.console.log(`STATIC PASS: ${publicTables.length} tables, RLS/grants, admin guard, private storage, and atomic quota structure detected.`);
+globalThis.console.log(`STATIC PASS: ${publicTables.length} tables, RLS/grants, admin guard, private storage, atomic quota, and atomic graph RPC structure detected.`);
 globalThis.console.log('No PostgreSQL execution was performed. Live reset, pgTAP, and database lint remain required.');

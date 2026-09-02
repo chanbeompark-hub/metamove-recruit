@@ -21,6 +21,10 @@ function renderPage() {
   return render(<MemoryRouter><ApplicationPage /></MemoryRouter>);
 }
 
+function validPdfFile(name = 'resume.pdf') {
+  return new File(['%PDF-1.7'], name, { type: 'application/pdf' });
+}
+
 async function completeBasicInfo(user: ReturnType<typeof userEvent.setup>, level: 'entry' | 'experienced' = 'entry') {
   await user.type(screen.getByLabelText('이름'), '홍길동');
   await user.type(screen.getByLabelText('연락처'), '010-1234-5678');
@@ -70,7 +74,7 @@ describe('ApplicationPage', () => {
 
     expect(screen.getByRole('heading', { name: '서류 첨부' })).toHaveFocus();
     expect(screen.getByText(/PDF, DOC, DOCX/).closest('.file-guidance')).toHaveTextContent('10MB');
-    const resume = new File(['resume'], '지원서.pdf', { type: 'application/pdf' });
+    const resume = validPdfFile('지원서.pdf');
     await user.upload(screen.getByLabelText('이력서'), resume);
     await user.click(screen.getByRole('button', { name: '다음' }));
 
@@ -108,6 +112,41 @@ describe('ApplicationPage', () => {
 
     expect(screen.getByLabelText('이력서')).toHaveValue('');
     expect(nativeSessionStorage.getItem(DRAFT_KEY)).not.toContain('stored.pdf');
+  });
+
+  it('uses shared signature validation for the required resume and optional portfolio', async () => {
+    nativeSessionStorage.setItem(DRAFT_KEY, JSON.stringify({
+      name: '파일검증', phone: '010-1234-5678', email: 'files@example.test',
+      level: 'entry', availableFrom: '2026-09-15', careerMonths: 0, careerHistory: [],
+      certifications: [], specialties: ['웨이트'],
+      motivation: longAnswer, strengths: longAnswer, goals: longAnswer,
+    }));
+    const user = userEvent.setup();
+    renderPage();
+    await user.click(screen.getByRole('button', { name: '다음' }));
+    await user.click(screen.getByRole('button', { name: '다음' }));
+    await user.click(screen.getByRole('button', { name: '다음' }));
+
+    await user.upload(
+      screen.getByLabelText('이력서'),
+      new File(['MZ'], 'spoofed.pdf', { type: 'application/pdf' }),
+    );
+    await user.click(screen.getByRole('button', { name: '다음' }));
+    expect(screen.getByRole('heading', { name: '서류 첨부' })).toBeInTheDocument();
+    expect(document.getElementById('resume-error')).toHaveTextContent('파일 내용과 형식이 일치하지 않습니다.');
+
+    await user.upload(
+      screen.getByLabelText('이력서'),
+      validPdfFile(),
+    );
+    await user.upload(
+      screen.getByLabelText('포트폴리오'),
+      new File(['MZ'], 'portfolio.pdf', { type: 'application/pdf' }),
+    );
+    await user.click(screen.getByRole('button', { name: '다음' }));
+    expect(screen.getByRole('heading', { name: '서류 첨부' })).toBeInTheDocument();
+    expect(screen.getByLabelText('포트폴리오')).toHaveAttribute('aria-describedby', expect.stringContaining('portfolio-error'));
+    expect(document.getElementById('portfolio-error')).toHaveTextContent('파일 내용과 형식이 일치하지 않습니다.');
   });
 
   it('validates only the active step and focuses the error summary before advancing', async () => {
@@ -185,7 +224,7 @@ describe('ApplicationPage', () => {
     await user.click(screen.getByRole('button', { name: '다음' }));
     await user.click(screen.getByRole('button', { name: '다음' }));
     await user.click(screen.getByRole('button', { name: '다음' }));
-    await user.upload(screen.getByLabelText('이력서'), new File(['r'], 'resume.pdf', { type: 'application/pdf' }));
+    await user.upload(screen.getByLabelText('이력서'), validPdfFile());
     await user.click(screen.getByRole('button', { name: '다음' }));
 
     await user.click(screen.getByRole('button', { name: '기본 정보 수정' }));
@@ -207,7 +246,7 @@ describe('ApplicationPage', () => {
     await user.click(screen.getByRole('button', { name: '다음' }));
     await user.click(screen.getByRole('button', { name: '다음' }));
     await user.click(screen.getByRole('button', { name: '다음' }));
-    await user.upload(screen.getByLabelText('이력서'), new File(['r'], 'resume.pdf', { type: 'application/pdf' }));
+    await user.upload(screen.getByLabelText('이력서'), validPdfFile());
     await user.click(screen.getByRole('button', { name: '다음' }));
 
     await user.click(screen.getByRole('button', { name: '기본 정보 수정' }));
