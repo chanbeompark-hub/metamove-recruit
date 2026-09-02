@@ -254,8 +254,20 @@ requireMatch(
 requireMatch(
   failures,
   sql,
-  /create trigger validate_application_answers .* on public\.application_answers/,
-  'career level and month-total trigger validation is missing',
+  /create or replace function public\.assert_application_career_graph\(/,
+  'transaction-boundary career graph validation is missing',
+);
+requireMatch(
+  failures,
+  sql,
+  /create constraint trigger enforce_application_career_graph_from_applications .* on public\.applications deferrable initially deferred/,
+  'applications are missing a deferred career graph constraint trigger',
+);
+requireMatch(
+  failures,
+  sql,
+  /create constraint trigger enforce_application_career_graph_from_answers .* on public\.application_answers deferrable initially deferred/,
+  'application answers are missing a deferred career graph constraint trigger',
 );
 
 const adminProfiles = extractCreateTableBody(sql, 'admin_profiles') ?? '';
@@ -287,7 +299,7 @@ requireMatch(
 requireMatch(
   failures,
   sql,
-  /create or replace function public\.consume_submission_quota\(.*security definer.*set search_path = ''.*pg_advisory_xact_lock.*delete from public\.submission_rate_limits.*select count\(\*\).*insert into public\.submission_rate_limits/s,
+  /create or replace function public\.consume_submission_quota\(.*security definer.*set search_path = ''.*p_maximum is null.*p_window_seconds is null.*pg_advisory_xact_lock.*delete from public\.submission_rate_limits.*select count\(\*\).*insert into public\.submission_rate_limits/s,
   'quota RPC must lock, clean, count, and record atomically with a fixed search_path',
 );
 requireMatch(
@@ -311,8 +323,8 @@ requireMatch(
 requireMatch(
   failures,
   sql,
-  /create policy "active admins can read application files" on storage\.objects for select to authenticated using.*public\.is_active_admin\(\)/s,
-  'authenticated active-admin storage read policy is missing',
+  /revoke all privileges on table storage\.buckets, storage\.objects from public, anon, authenticated/,
+  'storage privileges are not explicitly revoked from public, anon, and authenticated',
 );
 requireMatch(
   failures,
@@ -320,27 +332,29 @@ requireMatch(
   /revoke all privileges on table public\.applications, public\.application_answers, public\.application_files, public\.admin_profiles, public\.application_reviews, public\.application_status_history, public\.submission_rate_limits from public, anon, authenticated/,
   'application table privileges are not explicitly revoked from public, anon, and authenticated',
 );
-requireMatch(
-  failures,
-  sql,
-  /grant update \(status\) on public\.applications to authenticated/,
-  'authenticated administrators are missing status-only application update access',
-);
-if (/grant update on public\.applications to authenticated/.test(sql)) {
-  failures.push('authenticated has broad application update access instead of status-only access');
+if (/create policy .* on storage\.objects .* to authenticated/.test(sql)) {
+  failures.push('authenticated direct storage policy must not exist');
+}
+if (/grant .*storage\.objects.* to authenticated/.test(sql)) {
+  failures.push('authenticated direct storage grant must not exist');
+}
+if (/create policy .* on storage\.objects/.test(sql) && !/bucket_id = 'application-files'/.test(sql)) {
+  failures.push('every storage.objects policy must include the application-files bucket predicate');
+}
+if (/grant (insert|update|delete)\b.* on public\..* to authenticated/.test(sql)) {
+  failures.push('authenticated table access must be read-only');
+}
+if (/create policy .* on public\..* for (insert|update|delete) to authenticated/.test(sql)) {
+  failures.push('authenticated mutation policies must not exist before the atomic admin RPC');
 }
 
 for (const [policy, table, operation] of [
   ['active admins can read applications', 'applications', 'select'],
-  ['active admins can update application status', 'applications', 'update'],
   ['active admins can read application answers', 'application_answers', 'select'],
   ['active admins can read application file metadata', 'application_files', 'select'],
   ['active admins can read admin profiles', 'admin_profiles', 'select'],
   ['active admins can read reviews', 'application_reviews', 'select'],
-  ['active admins can create their own reviews', 'application_reviews', 'insert'],
-  ['active admins can update their own reviews', 'application_reviews', 'update'],
   ['active admins can read status history', 'application_status_history', 'select'],
-  ['active admins can append status history', 'application_status_history', 'insert'],
 ]) {
   requireMatch(
     failures,

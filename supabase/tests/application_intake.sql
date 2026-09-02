@@ -84,6 +84,26 @@ select results_eq(
   'RLS is enabled on every public application table'
 );
 
+select results_eq(
+  $$
+    select tgname::text
+    from pg_catalog.pg_trigger
+    where tgname in (
+      'enforce_application_career_graph_from_applications',
+      'enforce_application_career_graph_from_answers'
+    )
+      and tgdeferrable
+      and tginitdeferred
+    order by tgname
+  $$,
+  $$
+    values
+      ('enforce_application_career_graph_from_answers'::text),
+      ('enforce_application_career_graph_from_applications'::text)
+  $$,
+  'career graph constraint triggers are DEFERRABLE INITIALLY DEFERRED'
+);
+
 select is(
   (
     select coalesce(bool_or(
@@ -175,6 +195,43 @@ reset role;
 
 select is(public.is_active_admin(), false, 'unauthenticated caller is not admin');
 select is(
+  (
+    select pg_catalog.pg_get_userbyid(proowner)
+    from pg_catalog.pg_proc
+    where oid = 'public.is_active_admin()'::regprocedure
+  ),
+  'postgres',
+  'active-admin guard is owned by postgres'
+);
+select is(
+  (
+    select prosecdef
+    from pg_catalog.pg_proc
+    where oid = 'public.is_active_admin()'::regprocedure
+  ),
+  true,
+  'active-admin guard is SECURITY DEFINER'
+);
+select is(
+  (
+    select proconfig = array['search_path=""']::text[]
+    from pg_catalog.pg_proc
+    where oid = 'public.is_active_admin()'::regprocedure
+  ),
+  true,
+  'active-admin guard has exactly an empty fixed search_path'
+);
+select is(
+  pg_catalog.has_function_privilege('anon', 'public.is_active_admin()', 'EXECUTE'),
+  false,
+  'anon cannot execute the active-admin guard'
+);
+select is(
+  pg_catalog.has_function_privilege('authenticated', 'public.is_active_admin()', 'EXECUTE'),
+  true,
+  'authenticated can execute the active-admin guard used by read policies'
+);
+select is(
   (select public from storage.buckets where id = 'application-files'),
   false,
   'application bucket is private'
@@ -221,6 +278,15 @@ select is(
   false,
   'rate limits store no raw IP or email column'
 );
+
+insert into storage.buckets (id, name, public)
+values ('unrelated-private', 'unrelated-private', false)
+on conflict (id) do update set public = false;
+
+insert into storage.objects (bucket_id, name)
+values
+  ('application-files', 'applications/test/resume.pdf'),
+  ('unrelated-private', 'unrelated/secret.pdf');
 
 insert into auth.users (id, email)
 values
@@ -295,22 +361,63 @@ select throws_ok(
   'database preserves the canonical set semantics for specialties'
 );
 
+insert into public.application_reviews (
+  application_id,
+  admin_id,
+  rating,
+  note
+) values (
+  '20000000-0000-0000-0000-000000000001',
+  '10000000-0000-0000-0000-000000000002',
+  4,
+  '테스트 전용 메모'
+);
+
+insert into public.application_status_history (
+  application_id,
+  previous_status,
+  new_status,
+  admin_id,
+  reason
+) values (
+  '20000000-0000-0000-0000-000000000001',
+  'new',
+  'reviewing',
+  '10000000-0000-0000-0000-000000000002',
+  '테스트 전용 상태 변경'
+);
+
+select is(
+  pg_catalog.has_table_privilege('authenticated', 'public.applications', 'UPDATE'),
+  false,
+  'authenticated has no direct application update privilege'
+);
+select is(
+  not pg_catalog.has_table_privilege('authenticated', 'public.application_reviews', 'INSERT')
+    and not pg_catalog.has_table_privilege('authenticated', 'public.application_reviews', 'UPDATE'),
+  true,
+  'authenticated has no direct review mutation privilege'
+);
+select is(
+  pg_catalog.has_table_privilege('authenticated', 'public.application_status_history', 'INSERT'),
+  false,
+  'authenticated has no direct status-history mutation privilege'
+);
+select is(
+  pg_catalog.has_table_privilege('authenticated', 'storage.objects', 'SELECT'),
+  false,
+  'authenticated has no direct storage object read privilege'
+);
+
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000001', true);
 set local role authenticated;
 select is(public.is_active_admin(), false, 'inactive authenticated caller is not admin');
 select is((select count(*) from public.applications), 0::bigint, 'inactive admin sees no applications');
-select is(
-  (
-    with changed as (
-      update public.applications
-      set status = 'accepted'
-      where receipt_code = 'TEST-RECEIPT-001'
-      returning 1
-    )
-    select count(*) from changed
-  ),
-  0::bigint,
-  'inactive admin cannot update applications'
+select throws_ok(
+  'update public.applications set status = ''accepted'' where receipt_code = ''TEST-RECEIPT-001''',
+  '42501',
+  null,
+  'inactive admin has no direct application update capability'
 );
 select throws_ok(
   'select public.consume_submission_quota(''bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'', 5, 600)',
@@ -324,15 +431,30 @@ select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000002
 set local role authenticated;
 select is(public.is_active_admin(), true, 'active authenticated caller is admin');
 select is((select count(*) from public.applications), 1::bigint, 'active admin can read applications');
-select lives_ok(
+select lives_ok('select * from public.application_answers', 'active admin can read application answers');
+select lives_ok('select * from public.application_files', 'active admin can read application file metadata');
+select lives_ok('select * from public.admin_profiles', 'active admin can read admin profiles');
+select is((select count(*) from public.application_reviews), 1::bigint, 'active admin can read reviews');
+select is((select count(*) from public.application_status_history), 1::bigint, 'active admin can read status history');
+select throws_ok(
   'select * from storage.objects where bucket_id = ''application-files''',
-  'active admin can query private application file objects'
+  '42501',
+  null,
+  'active admin cannot list application file objects directly'
 );
-select lives_ok(
+select throws_ok(
+  'select * from storage.objects where bucket_id = ''unrelated-private''',
+  '42501',
+  null,
+  'active admin cannot list objects from another private bucket directly'
+);
+select throws_ok(
   'update public.applications set status = ''reviewing'' where receipt_code = ''TEST-RECEIPT-001''',
-  'active admin can update application status'
+  '42501',
+  null,
+  'active admin cannot update application status directly'
 );
-select lives_ok(
+select throws_ok(
   $sql$
     insert into public.application_reviews (
       application_id,
@@ -346,17 +468,21 @@ select lives_ok(
       '테스트 전용 메모'
     )
   $sql$,
-  'active admin can create their own review'
+  '42501',
+  null,
+  'active admin cannot create reviews directly'
 );
-select lives_ok(
+select throws_ok(
   $sql$
     update public.application_reviews
     set rating = 4
     where application_id = '20000000-0000-0000-0000-000000000001'
   $sql$,
-  'active admin can update their own review'
+  '42501',
+  null,
+  'active admin cannot update reviews directly'
 );
-select lives_ok(
+select throws_ok(
   $sql$
     insert into public.application_status_history (
       application_id,
@@ -372,7 +498,9 @@ select lives_ok(
       '테스트 전용 상태 변경'
     )
   $sql$,
-  'active admin can append their own status history'
+  '42501',
+  null,
+  'active admin cannot append status history directly'
 );
 select throws_ok(
   'update public.applications set name = ''변조된 이름'' where receipt_code = ''TEST-RECEIPT-001''',
@@ -382,10 +510,51 @@ select throws_ok(
 );
 reset role;
 
+set local role service_role;
+select throws_ok(
+  'select public.consume_submission_quota(''aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'', null::integer, 600)',
+  '22023',
+  null,
+  'quota rejects a NULL maximum'
+);
+select throws_ok(
+  'select public.consume_submission_quota(''aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'', 5, null::integer)',
+  '22023',
+  null,
+  'quota rejects a NULL window'
+);
+select throws_ok(
+  'select public.consume_submission_quota(''aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'', 0, 600)',
+  '22023',
+  null,
+  'quota rejects a zero maximum'
+);
+select throws_ok(
+  'select public.consume_submission_quota(''aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'', 5, -1)',
+  '22023',
+  null,
+  'quota rejects a negative window'
+);
+select is(
+  (select count(*) from storage.objects where bucket_id = 'application-files'),
+  1::bigint,
+  'service role can access the server-owned application file object'
+);
+select is(
+  (select count(*) from storage.objects where bucket_id = 'unrelated-private'),
+  1::bigint,
+  'service role remains unrestricted across private buckets'
+);
+reset role;
+
+update public.applications
+set status = 'reviewing'
+where receipt_code = 'TEST-RECEIPT-001';
+
 select is(
   (select status::text from public.applications where receipt_code = 'TEST-RECEIPT-001'),
   'reviewing',
-  'the permitted status update is persisted'
+  'a trusted database-side status update is persisted'
 );
 select ok(
   (
@@ -436,24 +605,31 @@ select throws_ok(
   null,
   'essay text cannot be stored as answer JSON'
 );
+insert into public.application_answers (
+  application_id,
+  answer_key,
+  answer_json,
+  display_order
+) values (
+  '20000000-0000-0000-0000-000000000001',
+  'career_history',
+  '[{"company":"가상센터","role":"트레이너","months":1}]'::jsonb,
+  2
+);
 select throws_ok(
-  $sql$
-    insert into public.application_answers (
-      application_id,
-      answer_key,
-      answer_json,
-      display_order
-    ) values (
-      '20000000-0000-0000-0000-000000000001',
-      'career_history',
-      '[{"company":"가상센터","role":"트레이너","months":1}]'::jsonb,
-      2
-    )
-  $sql$,
+  'set constraints all immediate',
   '23514',
   null,
-  'entry applications cannot store career history'
+  'deferred graph validation rejects entry career history at the transaction boundary'
 );
+delete from public.application_answers
+where application_id = '20000000-0000-0000-0000-000000000001'
+  and answer_key = 'career_history';
+select lives_ok(
+  'set constraints all immediate',
+  'entry graph becomes valid after deleting career history in the same transaction'
+);
+set constraints all deferred;
 
 insert into public.applications (
   id,
@@ -484,40 +660,82 @@ insert into public.applications (
 );
 
 select throws_ok(
-  $sql$
-    insert into public.application_answers (
-      application_id,
-      answer_key,
-      answer_json,
-      display_order
-    ) values (
-      '20000000-0000-0000-0000-000000000002',
-      'career_history',
-      '[{"company":"가상센터","role":"트레이너","months":12}]'::jsonb,
-      1
-    )
-  $sql$,
+  'set constraints all immediate',
   '23514',
   null,
-  'career history month sum must match careerMonths'
+  'experienced application requires exactly one career history answer by commit'
 );
+
+insert into public.application_answers (
+  application_id,
+  answer_key,
+  answer_json,
+  display_order
+) values (
+  '20000000-0000-0000-0000-000000000002',
+  'career_history',
+  '[{"company":"가상센터","role":"트레이너","months":12}]'::jsonb,
+  1
+);
+select throws_ok(
+  'set constraints all immediate',
+  '23514',
+  null,
+  'deferred graph validation rejects a mismatched career month sum'
+);
+
+update public.application_answers
+set answer_json = '[{"company":"가상센터","role":"트레이너","months":24}]'::jsonb
+where application_id = '20000000-0000-0000-0000-000000000002'
+  and answer_key = 'career_history';
 select lives_ok(
-  $sql$
-    insert into public.application_answers (
-      application_id,
-      answer_key,
-      answer_json,
-      display_order
-    ) values (
-      '20000000-0000-0000-0000-000000000002',
-      'career_history',
-      '[{"company":"가상센터","role":"트레이너","months":24}]'::jsonb,
-      1
-    )
-  $sql$,
-  'experienced career history accepts canonical JSON with a matching month total'
+  'set constraints all immediate',
+  'experienced graph passes once canonical career history matches the month total'
 );
+set constraints all deferred;
+
+update public.applications
+set career_months = 36
+where id = '20000000-0000-0000-0000-000000000002';
+update public.application_answers
+set answer_json = '[{"company":"가상센터","role":"트레이너","months":36}]'::jsonb
+where application_id = '20000000-0000-0000-0000-000000000002'
+  and answer_key = 'career_history';
+select lives_ok(
+  'set constraints all immediate',
+  'parent-first updates may restore a coherent graph before transaction validation'
+);
+set constraints all deferred;
+
+delete from public.application_answers
+where application_id = '20000000-0000-0000-0000-000000000002'
+  and answer_key = 'career_history';
+select throws_ok(
+  'set constraints all immediate',
+  '23514',
+  null,
+  'deleting the only experienced career history row is rejected at the transaction boundary'
+);
+insert into public.application_answers (
+  application_id,
+  answer_key,
+  answer_json,
+  display_order
+) values (
+  '20000000-0000-0000-0000-000000000002',
+  'career_history',
+  '[{"company":"가상센터","role":"트레이너","months":36}]'::jsonb,
+  1
+);
+select lives_ok('set constraints all immediate', 'restoring the deleted answer repairs the graph');
+set constraints all deferred;
+
 delete from public.applications where id = '20000000-0000-0000-0000-000000000002';
+select lives_ok(
+  'set constraints all immediate',
+  'parent deletion and cascading answer deletion do not revalidate a removed graph'
+);
+set constraints all deferred;
 
 insert into public.application_answers (
   application_id,

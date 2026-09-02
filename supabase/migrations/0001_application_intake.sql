@@ -233,48 +233,105 @@ on public.application_status_history (application_id, created_at desc);
 create index submission_rate_limits_actor_attempted_idx
 on public.submission_rate_limits (actor_hash, attempted_at);
 
-create or replace function public.validate_application_answer()
-returns trigger
+create or replace function public.assert_application_career_graph(p_application_id uuid)
+returns void
 language plpgsql
 set search_path = ''
 as $$
 declare
   applicant_level text;
   expected_months integer;
-  answer_months integer;
+  history_count bigint;
+  history_months bigint;
 begin
-  if new.answer_key <> 'career_history' then
-    return new;
+  select level, career_months
+  into applicant_level, expected_months
+  from public.applications
+  where id = p_application_id;
+
+  if not found then
+    return;
   end if;
 
-  select level, career_months
-  into strict applicant_level, expected_months
-  from public.applications
-  where id = new.application_id;
+  select count(*)
+  into history_count
+  from public.application_answers
+  where application_id = p_application_id
+    and answer_key = 'career_history';
 
-  if applicant_level <> 'experienced' then
+  if applicant_level = 'entry' then
+    if expected_months <> 0 or history_count <> 0 then
+      raise exception using
+        errcode = '23514',
+        message = 'entry application career graph is inconsistent';
+    end if;
+    return;
+  end if;
+
+  if applicant_level <> 'experienced'
+    or expected_months <= 0
+    or history_count <> 1
+  then
     raise exception using
       errcode = '23514',
-      message = 'entry applications cannot include career history';
+      message = 'experienced application requires one career history answer';
   end if;
 
-  select sum((entry ->> 'months')::integer)
-  into answer_months
-  from pg_catalog.jsonb_array_elements(new.answer_json) as career_rows(entry);
+  select coalesce(sum((entry ->> 'months')::integer), 0)
+  into history_months
+  from public.application_answers as answer
+  cross join lateral pg_catalog.jsonb_array_elements(answer.answer_json) as career_rows(entry)
+  where answer.application_id = p_application_id
+    and answer.answer_key = 'career_history';
 
-  if answer_months is distinct from expected_months then
+  if history_months is distinct from expected_months::bigint then
     raise exception using
       errcode = '23514',
       message = 'career history months must match application career months';
   end if;
+end;
+$$;
 
+create or replace function public.enforce_application_career_graph_from_application()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  perform public.assert_application_career_graph(new.id);
   return new;
 end;
 $$;
 
-create trigger validate_application_answers
-before insert or update on public.application_answers
-for each row execute function public.validate_application_answer();
+create or replace function public.enforce_application_career_graph_from_answer()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if tg_op = 'DELETE' then
+    perform public.assert_application_career_graph(old.application_id);
+    return old;
+  end if;
+
+  if tg_op = 'UPDATE' and old.application_id is distinct from new.application_id then
+    perform public.assert_application_career_graph(old.application_id);
+  end if;
+
+  perform public.assert_application_career_graph(new.application_id);
+  return new;
+end;
+$$;
+
+create constraint trigger enforce_application_career_graph_from_applications
+after insert or update on public.applications
+deferrable initially deferred
+for each row execute function public.enforce_application_career_graph_from_application();
+
+create constraint trigger enforce_application_career_graph_from_answers
+after insert or update or delete on public.application_answers
+deferrable initially deferred
+for each row execute function public.enforce_application_career_graph_from_answer();
 
 create trigger set_applications_updated_at
 before update on public.applications
@@ -328,6 +385,8 @@ declare
 begin
   if p_actor_hash is null
     or pg_catalog.char_length(pg_catalog.btrim(p_actor_hash)) not between 32 and 128
+    or p_maximum is null
+    or p_window_seconds is null
     or p_maximum <= 0
     or p_window_seconds <= 0
   then
@@ -376,13 +435,6 @@ for select
 to authenticated
 using ((select public.is_active_admin()));
 
-create policy "active admins can update application status"
-on public.applications
-for update
-to authenticated
-using ((select public.is_active_admin()))
-with check ((select public.is_active_admin()));
-
 create policy "active admins can read application answers"
 on public.application_answers
 for select
@@ -407,42 +459,11 @@ for select
 to authenticated
 using ((select public.is_active_admin()));
 
-create policy "active admins can create their own reviews"
-on public.application_reviews
-for insert
-to authenticated
-with check (
-  (select public.is_active_admin())
-  and admin_id = (select auth.uid())
-);
-
-create policy "active admins can update their own reviews"
-on public.application_reviews
-for update
-to authenticated
-using (
-  (select public.is_active_admin())
-  and admin_id = (select auth.uid())
-)
-with check (
-  (select public.is_active_admin())
-  and admin_id = (select auth.uid())
-);
-
 create policy "active admins can read status history"
 on public.application_status_history
 for select
 to authenticated
 using ((select public.is_active_admin()));
-
-create policy "active admins can append status history"
-on public.application_status_history
-for insert
-to authenticated
-with check (
-  (select public.is_active_admin())
-  and admin_id = (select auth.uid())
-);
 
 revoke all privileges on table
   public.applications,
@@ -463,30 +484,6 @@ grant select on table
   public.application_status_history
 to authenticated;
 
-grant update (status) on public.applications to authenticated;
-
-grant insert (
-  application_id,
-  admin_id,
-  rating,
-  note,
-  next_action_at
-) on public.application_reviews to authenticated;
-
-grant update (
-  rating,
-  note,
-  next_action_at
-) on public.application_reviews to authenticated;
-
-grant insert (
-  application_id,
-  previous_status,
-  new_status,
-  admin_id,
-  reason
-) on public.application_status_history to authenticated;
-
 grant all privileges on table
   public.applications,
   public.application_answers,
@@ -499,10 +496,13 @@ to service_role;
 
 revoke all on function public.set_updated_at() from public, anon, authenticated;
 revoke all on function public.is_valid_trimmed_text_set(text[], integer, integer) from public, anon;
-grant execute on function public.is_valid_trimmed_text_set(text[], integer, integer) to authenticated, service_role;
+grant execute on function public.is_valid_trimmed_text_set(text[], integer, integer) to service_role;
 revoke all on function public.is_valid_career_history(jsonb) from public, anon, authenticated;
 grant execute on function public.is_valid_career_history(jsonb) to service_role;
-revoke all on function public.validate_application_answer() from public, anon, authenticated;
+revoke all on function public.assert_application_career_graph(uuid) from public, anon, authenticated;
+grant execute on function public.assert_application_career_graph(uuid) to service_role;
+revoke all on function public.enforce_application_career_graph_from_application() from public, anon, authenticated;
+revoke all on function public.enforce_application_career_graph_from_answer() from public, anon, authenticated;
 revoke all on function public.is_active_admin() from public, anon;
 grant execute on function public.is_active_admin() to authenticated, service_role;
 revoke all on function public.consume_submission_quota(text, integer, integer) from public, anon, authenticated;
@@ -533,17 +533,5 @@ set
   file_size_limit = excluded.file_size_limit,
   allowed_mime_types = excluded.allowed_mime_types;
 
-drop policy if exists "active admins can read application files" on storage.objects;
-
-create policy "active admins can read application files"
-on storage.objects
-for select
-to authenticated
-using (
-  bucket_id = 'application-files'
-  and (select public.is_active_admin())
-);
-
 revoke all privileges on table storage.buckets, storage.objects from public, anon, authenticated;
-grant select on table storage.buckets, storage.objects to authenticated;
 grant all privileges on table storage.buckets, storage.objects to service_role;
