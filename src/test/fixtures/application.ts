@@ -1,0 +1,15 @@
+export const validEntryInput = {
+  name: '테스트지원자',
+  phone: '010-1234-5678',
+  email: 'applicant@example.test',
+  level: 'entry' as const,
+  availableFrom: '2026-09-15',
+  careerMonths: 0,
+  careerHistory: [],
+  certifications: ['생활스포츠지도사'],
+  specialties: ['웨이트 트레이닝'],
+  motivation: '지원 동기 테스트 문장입니다. '.repeat(8),
+  strengths: '트레이너 강점 테스트 문장입니다. '.repeat(8),
+  goals: '입사 후 목표 테스트 문장입니다. '.repeat(8),
+  privacyConsent: true as const,
+};
