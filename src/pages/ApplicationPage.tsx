@@ -76,6 +76,7 @@ export function ApplicationPage() {
   const normalizeExperience = () => {
     const certifications = form.getValues('certifications') ?? [];
     const specialties = form.getValues('specialties') ?? [];
+    form.clearErrors(['certifications', 'specialties']);
     form.setValue('certifications', certifications.map((item) => item.trim()).filter(Boolean));
     form.setValue('specialties', specialties.map((item) => item.trim()).filter(Boolean));
     if (form.getValues('level') === 'entry') {
@@ -99,7 +100,13 @@ export function ApplicationPage() {
   const validateActiveSchemaIssues = () => {
     if (activeStep > 2) return true;
     const activeRoots = new Set(ACTIVE_FIELDS[activeStep].map((field) => field.split('.')[0]));
-    const result = applicationSchema.safeParse({ ...form.getValues(), privacyConsent: true });
+    const values = form.getValues();
+    const result = applicationSchema.safeParse({
+      ...values,
+      certifications: values.certifications ?? [],
+      specialties: values.specialties ?? [],
+      privacyConsent: true,
+    });
     if (result.success) return true;
 
     const activeIssues = result.error.issues.filter((issue) => activeRoots.has(String(issue.path[0])));

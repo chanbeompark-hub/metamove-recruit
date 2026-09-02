@@ -264,4 +264,69 @@ describe('ApplicationPage', () => {
       expect(document.getElementById(errorId)).toBeVisible();
     }
   });
+
+  it('does not invent a certification error for an empty optional list and clears a real duplicate error', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await completeBasicInfo(user, 'experienced');
+    await user.click(screen.getByRole('button', { name: '다음' }));
+    await user.type(screen.getByLabelText('총 경력 기간(개월)'), '12');
+    await user.type(screen.getByLabelText('전문 분야 1'), '웨이트');
+    await user.click(screen.getByRole('button', { name: '다음' }));
+
+    expect(screen.getByRole('alert')).toHaveTextContent('경력·자격 정보를 확인해주세요.');
+    expect(screen.queryByText('자격증을 중복 없이 입력해주세요.')).not.toBeInTheDocument();
+    expect(screen.queryByText('자격증은 중복해서 입력할 수 없습니다.')).not.toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /자격증/ }).closest('section')).not.toHaveAttribute('aria-describedby');
+    expect(document.getElementById('certifications-error')).not.toBeInTheDocument();
+
+    cleanup();
+    nativeSessionStorage.clear();
+    renderPage();
+    await completeBasicInfo(user, 'experienced');
+    await user.click(screen.getByRole('button', { name: '다음' }));
+    await user.type(screen.getByLabelText('총 경력 기간(개월)'), '12');
+    await user.type(screen.getByLabelText('전문 분야 1'), '웨이트');
+    await user.click(screen.getByRole('button', { name: /자격증 추가/ }));
+    await user.type(screen.getByLabelText('자격증 1'), '생활스포츠지도사');
+    await user.type(screen.getByLabelText('자격증 2'), ' 생활스포츠지도사 ');
+    await user.click(screen.getByRole('button', { name: '다음' }));
+
+    const certificationSection = screen.getByRole('heading', { name: /자격증/ }).closest('section');
+    expect(certificationSection).toHaveAttribute('aria-describedby', 'certifications-error');
+    expect(document.getElementById('certifications-error')).toHaveTextContent('자격증은 중복해서 입력할 수 없습니다.');
+
+    await user.clear(screen.getByLabelText('자격증 2'));
+    await user.type(screen.getByLabelText('자격증 2'), 'NSCA-CPT');
+    await user.click(screen.getByRole('button', { name: '다음' }));
+
+    expect(screen.getByRole('heading', { name: '경력·자격' })).toBeInTheDocument();
+    expect(screen.queryByText('자격증은 중복해서 입력할 수 없습니다.')).not.toBeInTheDocument();
+    expect(certificationSection).not.toHaveAttribute('aria-describedby');
+  });
+
+  it('renders and clears the actual specialty array root error', async () => {
+    const user = userEvent.setup();
+    renderPage();
+    await completeBasicInfo(user, 'experienced');
+    await user.click(screen.getByRole('button', { name: '다음' }));
+    await user.type(screen.getByLabelText('총 경력 기간(개월)'), '12');
+    await user.type(screen.getByLabelText('자격증 1'), '생활스포츠지도사');
+    await user.type(screen.getByLabelText('전문 분야 1'), '웨이트');
+    await user.click(screen.getByRole('button', { name: /전문 분야 추가/ }));
+    await user.type(screen.getByLabelText('전문 분야 2'), ' 웨이트 ');
+    await user.click(screen.getByRole('button', { name: '다음' }));
+
+    const specialtySection = screen.getByRole('heading', { name: /전문 분야/ }).closest('section');
+    expect(specialtySection).toHaveAttribute('aria-describedby', 'specialties-error');
+    expect(document.getElementById('specialties-error')).toHaveTextContent('전문 분야는 중복해서 입력할 수 없습니다.');
+
+    await user.clear(screen.getByLabelText('전문 분야 2'));
+    await user.type(screen.getByLabelText('전문 분야 2'), '재활 운동');
+    await user.click(screen.getByRole('button', { name: '다음' }));
+
+    expect(screen.getByRole('heading', { name: '경력·자격' })).toBeInTheDocument();
+    expect(screen.queryByText('전문 분야는 중복해서 입력할 수 없습니다.')).not.toBeInTheDocument();
+    expect(specialtySection).not.toHaveAttribute('aria-describedby');
+  });
 });

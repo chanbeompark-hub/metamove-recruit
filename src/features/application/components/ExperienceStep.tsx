@@ -2,6 +2,29 @@ import { useEffect } from 'react';
 import { useFieldArray, useFormContext, useWatch } from 'react-hook-form';
 import type { ApplicationInput } from '../types';
 
+function getArrayRootMessage(error: unknown) {
+  if (!error || typeof error !== 'object') return undefined;
+
+  const arrayError = error as {
+    message?: unknown;
+    root?: { message?: unknown };
+  };
+  if (typeof arrayError.message === 'string') return arrayError.message;
+  return typeof arrayError.root?.message === 'string' ? arrayError.root.message : undefined;
+}
+
+function getArrayItemMessage(error: unknown, index: number) {
+  if (!error || typeof error !== 'object') return undefined;
+
+  const item = Array.isArray(error)
+    ? error[index]
+    : (error as Record<string, unknown>)[String(index)];
+  if (!item || typeof item !== 'object') return undefined;
+
+  const message = (item as { message?: unknown }).message;
+  return typeof message === 'string' ? message : undefined;
+}
+
 export function ExperienceStep() {
   const {
     control,
@@ -15,6 +38,8 @@ export function ExperienceStep() {
   const certifications = useWatch({ control, name: 'certifications' }) ?? [];
   const specialties = useWatch({ control, name: 'specialties' }) ?? [];
   const history = useFieldArray({ control, name: 'careerHistory' });
+  const certificationError = getArrayRootMessage(errors.certifications);
+  const specialtyError = getArrayRootMessage(errors.specialties);
 
   useEffect(() => {
     if (level !== 'entry') return;
@@ -117,39 +142,63 @@ export function ExperienceStep() {
       )}
 
       <div className="qualification-grid">
-        <section aria-labelledby="certification-heading">
+        <section
+          aria-labelledby="certification-heading"
+          aria-describedby={certificationError ? 'certifications-error' : undefined}
+        >
           <p className="section-index">02</p>
           <h2 id="certification-heading">자격증 <span className="optional-mark">선택</span></h2>
           <div className="repeatable-list">
-            {certifications.map((_, index) => (
-              <div className="repeatable-field" key={`certification-${index}`}>
-                <div className="field-group">
-                  <label htmlFor={`certification-${index}`}>자격증 {index + 1}</label>
-                  <input id={`certification-${index}`} {...register(`certifications.${index}`)} />
+            {certifications.map((_, index) => {
+              const itemError = getArrayItemMessage(errors.certifications, index);
+              return (
+                <div className="repeatable-field" key={`certification-${index}`}>
+                  <div className="field-group">
+                    <label htmlFor={`certification-${index}`}>자격증 {index + 1}</label>
+                    <input
+                      id={`certification-${index}`}
+                      {...register(`certifications.${index}`)}
+                      aria-invalid={Boolean(itemError)}
+                      aria-describedby={itemError ? `certification-${index}-error` : undefined}
+                    />
+                    {itemError && <p className="field-error" id={`certification-${index}-error`}>{itemError}</p>}
+                  </div>
+                  {certifications.length > 1 && <button className="text-button" type="button" onClick={() => removeCertification(index)}>자격증 {index + 1} 삭제</button>}
                 </div>
-                {certifications.length > 1 && <button className="text-button" type="button" onClick={() => removeCertification(index)}>자격증 {index + 1} 삭제</button>}
-              </div>
-            ))}
+              );
+            })}
           </div>
           <button className="text-button text-button--add" type="button" onClick={addCertification}>+ 자격증 추가</button>
-          {errors.certifications && <p className="field-error">자격증을 중복 없이 입력해주세요.</p>}
+          {certificationError && <p className="field-error" id="certifications-error">{certificationError}</p>}
         </section>
-        <section aria-labelledby="specialty-heading">
+        <section
+          aria-labelledby="specialty-heading"
+          aria-describedby={specialtyError ? 'specialties-error' : undefined}
+        >
           <p className="section-index">03</p>
           <h2 id="specialty-heading">전문 분야 <span aria-hidden="true">*</span></h2>
           <div className="repeatable-list">
-            {specialties.map((_, index) => (
-              <div className="repeatable-field" key={`specialty-${index}`}>
-                <div className="field-group">
-                  <label htmlFor={`specialty-${index}`}>전문 분야 {index + 1}</label>
-                  <input id={`specialty-${index}`} {...register(`specialties.${index}`)} />
+            {specialties.map((_, index) => {
+              const itemError = getArrayItemMessage(errors.specialties, index);
+              return (
+                <div className="repeatable-field" key={`specialty-${index}`}>
+                  <div className="field-group">
+                    <label htmlFor={`specialty-${index}`}>전문 분야 {index + 1}</label>
+                    <input
+                      id={`specialty-${index}`}
+                      {...register(`specialties.${index}`)}
+                      aria-invalid={Boolean(itemError)}
+                      aria-describedby={itemError ? `specialty-${index}-error` : undefined}
+                    />
+                    {itemError && <p className="field-error" id={`specialty-${index}-error`}>{itemError}</p>}
+                  </div>
+                  {specialties.length > 1 && <button className="text-button" type="button" onClick={() => removeSpecialty(index)}>전문 분야 {index + 1} 삭제</button>}
                 </div>
-                {specialties.length > 1 && <button className="text-button" type="button" onClick={() => removeSpecialty(index)}>전문 분야 {index + 1} 삭제</button>}
-              </div>
-            ))}
+              );
+            })}
           </div>
           <button className="text-button text-button--add" type="button" onClick={addSpecialty}>+ 전문 분야 추가</button>
-          {errors.specialties && <p className="field-error">전문 분야를 입력해주세요.</p>}
+          {specialtyError && <p className="field-error" id="specialties-error">{specialtyError}</p>}
         </section>
       </div>
     </div>
