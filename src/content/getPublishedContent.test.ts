@@ -166,19 +166,39 @@ describe('getPublishedContent', () => {
     expect(JSON.stringify(result)).not.toContain('/center-draft.jpg');
   });
 
-  it('starts production content with only the approved headline and labels', () => {
+  it('publishes the approved Metamove recruitment facts without placeholder media or work rules', () => {
     const result = getPublishedContent(siteContent);
 
     expect(result.hero.headline).toBe('움직임을 바꾸는 트레이너, 메타무브짐에서 함께 성장하세요');
+    expect(result.hero.supportingCopy).toContain('두 대표가 직접 코칭하며');
     expect(result.evidence.map(({ label }) => label)).toEqual(['성장', '보상', '확장']);
-    expect(result.evidence.every(({ description }) => description === undefined)).toBe(true);
-    expect(result.center).toBeUndefined();
-    expect(result.expansionVision).toBeUndefined();
-    expect(result.representatives).toEqual([]);
-    expect(result.growthTracks).toEqual([]);
-    expect(result.benefits).toEqual([]);
+    expect(result.evidence.map(({ description }) => description)).toEqual([
+      expect.stringContaining('1:1 맞춤 PT'),
+      expect.stringContaining('트레이닝 교육'),
+      expect.stringContaining('확장 가능한 팀'),
+    ]);
+    expect(result.center).toMatchObject({
+      title: '상동에서 PT를 제대로 배우는 공간',
+      body: expect.stringContaining('상동역에서 도보 3~4분'),
+    });
+    expect(result.center).not.toHaveProperty('imageSrc');
+    expect(result.expansionVision?.body).toContain('목표');
+    expect(result.expansionVision?.body).toContain('가능성');
+    expect(result.representatives.map(({ name }) => name)).toEqual(['박찬범', '윤지헌']);
+    expect(result.representatives.every(({ imageSrc, imageAlt }) => imageSrc === undefined && imageAlt === undefined)).toBe(true);
+    expect(result.growthTracks.map(({ title }) => title)).toEqual(['신입 트레이너 성장 경로', '경력 트레이너 성장 경로']);
+    expect(result.benefits.map(({ title }) => title)).toEqual([
+      '트레이닝 교육 지원',
+      '마케팅 교육 지원',
+      '유니폼 제공',
+      '운동 공간 사용',
+      '세미나 참여 기회',
+    ]);
     expect(result.rules).toEqual([]);
-    expect(result.positions).toEqual([]);
-    expect(result.hiringProcess).toBeUndefined();
+    expect(result.positions.map(({ title }) => title)).toEqual(['신입 퍼스널 트레이너', '경력 퍼스널 트레이너']);
+    expect(result.hiringProcess).toEqual({
+      title: '채용 절차',
+      steps: ['지원서 제출', '서류 검토', '대표 인터뷰', '수업·코칭 역량 확인', '최종 안내'],
+    });
   });
 });

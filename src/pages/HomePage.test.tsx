@@ -95,15 +95,19 @@ describe('HomePage', () => {
     expect(entryTab).toHaveAttribute('aria-selected', 'true');
   });
 
-  it('leaves no empty section headings when production content is missing', () => {
+  it('renders approved production content as text-only representative profiles and benefits without work rules', () => {
     render(<MemoryRouter><HomePage content={getPublishedContent(siteContent)} /></MemoryRouter>);
 
-    expect(screen.queryByRole('region', { name: '센터 소개' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('region', { name: '입사 후 성장 경로' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('region', { name: '대표 소개' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('region', { name: '혜택과 근무 규정' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('region', { name: '채용 포지션' })).not.toBeInTheDocument();
-    expect(screen.queryByRole('region', { name: /채용 절차/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('region', { name: '센터 소개' })).toHaveTextContent('상동역에서 도보 3~4분');
+    expect(screen.getByRole('heading', { name: '현재의 기준을 단단하게, 다음의 가능성까지' })).toBeInTheDocument();
+    const representatives = screen.getByRole('region', { name: '대표 소개' });
+    expect(within(representatives).getByRole('heading', { name: '박찬범' })).toBeInTheDocument();
+    expect(within(representatives).getByRole('heading', { name: '윤지헌' })).toBeInTheDocument();
+    expect(within(representatives).queryByRole('img')).not.toBeInTheDocument();
+    expect(screen.getByRole('region', { name: '제공 혜택' })).toBeInTheDocument();
+    expect(screen.queryByRole('table', { name: '근무 규정' })).not.toBeInTheDocument();
+    expect(screen.getByRole('region', { name: '채용 포지션' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: '채용 절차' })).toBeInTheDocument();
   });
 
   it('renders only local fragment links that resolve in the production page', () => {

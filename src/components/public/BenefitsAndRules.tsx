@@ -13,12 +13,14 @@ export function BenefitsAndRules({ benefits, rules }: BenefitsAndRulesProps) {
     return null;
   }
 
+  const sectionTitle = availableRules.length > 0 ? '혜택과 근무 규정' : '제공 혜택';
+
   return (
     <section className="benefits-rules" id="benefits-rules" aria-labelledby="benefits-rules-title">
       <div className="public-section__inner">
         <header className="public-section__header">
           <p className="public-section__eyebrow">CONDITIONS</p>
-          <h2 id="benefits-rules-title">혜택과 근무 규정</h2>
+          <h2 id="benefits-rules-title">{sectionTitle}</h2>
         </header>
         <div className="benefits-rules__grid">
           {availableBenefits.length > 0 && (

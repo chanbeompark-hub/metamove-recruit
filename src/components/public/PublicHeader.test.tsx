@@ -1,9 +1,11 @@
-import { render, screen, within } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { publishedFixture } from '../../test/fixtures/siteContent';
 import { PublicHeader } from './PublicHeader';
+
+afterEach(cleanup);
 
 describe('PublicHeader', () => {
   it('exposes section navigation and one application destination', async () => {
@@ -33,5 +35,18 @@ describe('PublicHeader', () => {
 
     await user.tab();
     expect(document.activeElement).toHaveClass('skip-link');
+  });
+
+  it('labels a benefits-only navigation target without implying work rules', () => {
+    const contentWithoutRules = { ...publishedFixture, rules: [] };
+
+    render(
+      <MemoryRouter>
+        <PublicHeader content={contentWithoutRules} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('link', { name: '제공 혜택' })).toHaveAttribute('href', '#benefits-rules');
+    expect(screen.queryByRole('link', { name: '혜택·규정' })).not.toBeInTheDocument();
   });
 });

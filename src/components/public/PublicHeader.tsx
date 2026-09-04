@@ -2,26 +2,22 @@ import { Link } from 'react-router-dom';
 import type { PublishedSiteContent } from '../../content/types';
 import { getRenderedPublicSectionIds, type PublicSectionId } from './publicSections';
 
-const navigationItems = [
-  { label: '메타무브짐', id: 'metamove' },
-  { label: '대표 소개', id: 'representatives' },
-  { label: '혜택·규정', id: 'benefits-rules' },
-  { label: '채용 포지션', id: 'positions' },
-] as const;
-
 type PublicHeaderProps = {
   content: PublishedSiteContent;
 };
 
 export function PublicHeader({ content }: PublicHeaderProps) {
   const renderedSectionIds = getRenderedPublicSectionIds(content);
+  const hasRules = content.rules.some(({ label, value }) => label.trim() && value.trim());
   const growthAndVisionTarget = renderedSectionIds.has('vision')
     ? 'vision'
     : renderedSectionIds.has('growth') ? 'growth' : undefined;
   const visibleNavigationItems = [
-    navigationItems[0],
+    { label: '메타무브짐', id: 'metamove' },
     ...(growthAndVisionTarget ? [{ label: '성장과 비전', id: growthAndVisionTarget }] : []),
-    ...navigationItems.slice(1),
+    { label: '대표 소개', id: 'representatives' },
+    { label: hasRules ? '혜택·규정' : '제공 혜택', id: 'benefits-rules' },
+    { label: '채용 포지션', id: 'positions' },
   ];
 
   return (

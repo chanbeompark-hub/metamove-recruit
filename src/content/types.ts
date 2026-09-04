@@ -20,8 +20,8 @@ export type Representative = {
   role: string;
   career: string[];
   expertise: string[];
-  imageSrc: string;
-  imageAlt: string;
+  imageSrc?: string;
+  imageAlt?: string;
   published: boolean;
 };
 
