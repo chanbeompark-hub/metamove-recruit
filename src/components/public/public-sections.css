@@ -116,8 +116,15 @@
   margin: var(--space-8) 0 0;
   color: var(--color-body);
   font-size: 1.0625rem;
-  white-space: pre-line;
   word-break: keep-all;
+}
+
+.center-story__body p {
+  margin: 0;
+}
+
+.center-story__body p + p {
+  margin-block-start: var(--space-5);
 }
 
 .center-story__media {
@@ -316,6 +323,18 @@
   padding: 0;
   border-block-start: 1px solid var(--color-line);
   list-style: none;
+}
+
+.recruitment-draft-notice {
+  max-width: 42rem;
+  margin: var(--space-6) 0 0;
+  color: var(--color-body);
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.recruitment-draft-notice--inverse {
+  color: rgb(255 255 255 / 88%);
 }
 
 .hiring-process__steps li {

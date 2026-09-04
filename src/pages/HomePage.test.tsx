@@ -106,8 +106,8 @@ describe('HomePage', () => {
     expect(within(representatives).queryByRole('img')).not.toBeInTheDocument();
     expect(screen.getByRole('region', { name: '제공 혜택' })).toBeInTheDocument();
     expect(screen.queryByRole('table', { name: '근무 규정' })).not.toBeInTheDocument();
-    expect(screen.getByRole('region', { name: '채용 포지션' })).toBeInTheDocument();
-    expect(screen.getByRole('region', { name: '채용 절차' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: '1차 채용 검토안' })).toBeInTheDocument();
+    expect(screen.getByRole('region', { name: '1차 채용 절차안' })).toBeInTheDocument();
   });
 
   it('renders only local fragment links that resolve in the production page', () => {

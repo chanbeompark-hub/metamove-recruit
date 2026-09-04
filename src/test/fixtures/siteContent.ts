@@ -24,7 +24,7 @@ export const fixtureSiteContent: SiteContent = {
   ],
   center: {
     title: '움직임을 설계하는 센터',
-    body: '테스트 전용 센터 소개입니다.',
+    paragraphs: ['테스트 전용 센터 소개입니다.'],
     imageSrc: fixtureImage('TEST CENTER', '#1268D8'),
     imageAlt: '테스트용 센터 내부',
     desktopObjectPosition: '55% 45%',

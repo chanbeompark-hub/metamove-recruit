@@ -48,7 +48,7 @@ describe('EvidenceRail', () => {
 
     expect(screen.getByRole('heading', { name: '움직임을 바꾸는 트레이너, 메타무브짐에서 함께 성장하세요' }))
       .toBeVisible();
-    expect(screen.getByRole('link', { name: '지원서 작성하기' }))
+    expect(screen.getByRole('link', { name: '지원서 미리보기' }))
       .toHaveAttribute('href', '/apply');
     expect(screen.queryByRole('img')).not.toBeInTheDocument();
   });
@@ -63,7 +63,7 @@ describe('EvidenceRail', () => {
         published: true,
       },
       evidence: [],
-      center: { title: '', body: '', published: false },
+      center: { title: '', paragraphs: [], published: false },
       expansionVision: { title: '', body: '', published: false },
       representatives: [],
       growthTracks: [],
@@ -91,7 +91,7 @@ describe('EvidenceRail', () => {
       <CenterStory
         center={{
           title: '테스트 센터',
-          body: '테스트 센터 설명',
+          paragraphs: ['테스트 센터 설명'],
           imageSrc: '/center.jpg',
           imageAlt: '테스트 센터 내부',
           desktopObjectPosition: '60% 40%',

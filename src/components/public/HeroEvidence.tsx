@@ -24,7 +24,7 @@ export function HeroEvidence({ hero }: HeroEvidenceProps) {
             <p className="hero-evidence__supporting-copy">{hero.supportingCopy}</p>
           )}
           <Link className="hero-evidence__action" to="/apply">
-            지원서 작성하기
+            지원서 미리보기
             <span className="hero-evidence__action-arrow" aria-hidden="true">→</span>
           </Link>
         </div>

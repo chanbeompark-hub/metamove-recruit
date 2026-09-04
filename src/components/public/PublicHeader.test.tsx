@@ -19,7 +19,7 @@ describe('PublicHeader', () => {
 
     const navigation = screen.getByRole('navigation', { name: '주요 메뉴' });
     expect(navigation).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '지원하기' })).toHaveAttribute('href', '/apply');
+    expect(screen.getByRole('link', { name: '지원서 미리보기' })).toHaveAttribute('href', '/apply');
 
     const sectionTargets = [
       '#metamove',
@@ -48,5 +48,21 @@ describe('PublicHeader', () => {
 
     expect(screen.getByRole('link', { name: '제공 혜택' })).toHaveAttribute('href', '#benefits-rules');
     expect(screen.queryByRole('link', { name: '혜택·규정' })).not.toBeInTheDocument();
+  });
+
+  it('labels draft positions as a review instead of an active opening', () => {
+    const contentWithDraftPositions = {
+      ...publishedFixture,
+      positions: publishedFixture.positions.map((position) => ({ ...position, status: 'draft' as const })),
+    };
+
+    render(
+      <MemoryRouter>
+        <PublicHeader content={contentWithDraftPositions} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('link', { name: '채용 검토안' })).toHaveAttribute('href', '#positions');
+    expect(screen.queryByRole('link', { name: '채용 포지션' })).not.toBeInTheDocument();
   });
 });

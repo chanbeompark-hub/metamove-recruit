@@ -31,7 +31,11 @@ export const siteContent: SiteContent = {
   ],
   center: {
     title: '상동에서 PT를 제대로 배우는 공간',
-    body: '상동역에서 도보 3~4분, 2시간 무료 주차가 가능한 메타무브짐입니다. 평일 09:00–23:00, 토요일 10:00–15:00 운영하며 일요일과 신정·설날·추석에는 쉽니다. 공휴일과 대체공휴일은 10:00–15:00 단축 운영합니다. 두 대표가 직접 1:1 맞춤 PT, 웨이트 트레이닝, 케틀벨·클럽벨·TRX·애니멀 플로우 등 기능성 트레이닝, 패시브 스트레칭 기반 컨디셔닝을 안내합니다. 운동 초보도 수업 방식과 식단 관리를 함께 배우고, PT 회원은 헬스장 이용과 운동복·수건·샤워용품·개인 락커를 이용할 수 있습니다. 반려견 동반도 가능합니다.',
+    paragraphs: [
+      '상동역에서 도보 3~4분, 2시간 무료 주차가 가능한 메타무브짐입니다. 평일 09:00–23:00, 토요일 10:00–15:00 운영하며 일요일과 신정·설날·추석에는 쉽니다. 공휴일과 대체공휴일은 10:00–15:00 단축 운영합니다.',
+      '두 대표가 직접 1:1 맞춤 PT, 웨이트 트레이닝, 케틀벨·클럽벨·TRX·애니멀 플로우 등 기능성 트레이닝, 패시브 스트레칭 기반 컨디셔닝을 안내합니다.',
+      '운동 초보도 수업 방식과 식단 관리를 함께 배우고, PT 회원은 헬스장 이용과 운동복·수건·샤워용품·개인 락커를 이용할 수 있습니다. 반려견 동반도 가능합니다.',
+    ],
     published: true,
   },
   expansionVision: {
@@ -89,11 +93,11 @@ export const siteContent: SiteContent = {
     },
   ],
   benefits: [
-    { id: 'training-education', title: '트레이닝 교육 지원', description: '코칭 역량을 학습할 수 있도록 지원합니다.', published: true },
-    { id: 'marketing-education', title: '마케팅 교육 지원', description: '고객 커뮤니케이션과 콘텐츠 운영에 도움이 되는 교육을 지원합니다.', published: true },
-    { id: 'uniform', title: '유니폼 제공', description: '근무 시 사용할 유니폼을 제공합니다.', published: true },
-    { id: 'exercise-space', title: '운동 공간 사용', description: '센터의 운동 공간을 사용할 수 있습니다.', published: true },
-    { id: 'seminar', title: '세미나 참여 기회', description: '관련 세미나에 참여할 기회를 제공합니다.', published: true },
+    { id: 'training-education', title: '트레이닝 교육 지원', description: '트레이닝 교육을 지원합니다.', published: true },
+    { id: 'marketing-education', title: '마케팅 교육 지원', description: '마케팅 교육을 지원합니다.', published: true },
+    { id: 'uniform', title: '유니폼 제공', description: '유니폼을 제공합니다.', published: true },
+    { id: 'exercise-space', title: '운동 공간 사용', description: '센터 운동 공간을 사용할 수 있습니다.', published: true },
+    { id: 'seminar', title: '세미나 참여 기회', description: '세미나 참여 기회를 제공합니다.', published: true },
   ],
   rules: [],
   positions: [
@@ -103,6 +107,7 @@ export const siteContent: SiteContent = {
       level: 'entry',
       requirements: ['고객을 책임감 있게 대하고 배우려는 태도', '회원 상담과 수업 내용을 성실하게 기록하려는 태도'],
       preferences: ['생활스포츠지도사 등 관련 자격증 보유', '웨이트·기능성 트레이닝 경험'],
+      status: 'draft',
       published: true,
     },
     {
@@ -111,12 +116,14 @@ export const siteContent: SiteContent = {
       level: 'experienced',
       requirements: ['1:1 PT 진행 경험', '회원 목표에 맞춘 수업 설계와 기록 관리 역량'],
       preferences: ['생활스포츠지도사 등 관련 자격증 보유', '웨이트·애니멀 플로우 등 기능성 트레이닝 경험'],
+      status: 'draft',
       published: true,
     },
   ],
   hiringProcess: {
     title: '채용 절차',
     steps: ['지원서 제출', '서류 검토', '대표 인터뷰', '수업·코칭 역량 확인', '최종 안내'],
+    status: 'draft',
     published: true,
   },
 };

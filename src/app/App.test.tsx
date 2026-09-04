@@ -10,7 +10,9 @@ describe('App', () => {
     render(<MemoryRouter initialEntries={['/']}><App /></MemoryRouter>);
 
     expect(screen.getByRole('heading', { name: /움직임을 바꾸는 트레이너/ })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: '지원서 작성하기' })).toHaveAttribute('href', '/apply');
+    const previewLinks = screen.getAllByRole('link', { name: '지원서 미리보기' });
+    expect(previewLinks.length).toBeGreaterThan(0);
+    previewLinks.forEach((link) => expect(link).toHaveAttribute('href', '/apply'));
     expect(screen.getByRole('navigation', { name: '주요 메뉴' })).toBeInTheDocument();
     expect(screen.getByLabelText('지원 안내')).toBeInTheDocument();
   });
@@ -21,7 +23,7 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: '기본 정보' })).toBeInTheDocument();
     expect(screen.queryByRole('navigation', { name: '주요 메뉴' })).not.toBeInTheDocument();
     expect(screen.queryByLabelText('지원 안내')).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: '지원하기' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: '지원서 미리보기' })).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: '메타무브짐 홈' })).toHaveAttribute('href', '/');
   });
 

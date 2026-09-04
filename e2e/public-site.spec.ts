@@ -198,7 +198,7 @@ for (const width of testedWidths) {
     const mobileBar = page.getByLabel('지원 안내');
     if (width < 768) {
       await expect(mobileBar).toBeVisible();
-      await expect(mobileBar.getByRole('link', { name: '지원하기' })).toBeVisible();
+      await expect(mobileBar.getByRole('link', { name: '지원서 미리보기' })).toBeVisible();
 
       const reservedSpace = await page.evaluate(() => {
         const bar = document.querySelector<HTMLElement>('.mobile-apply-bar');
@@ -223,6 +223,59 @@ for (const width of testedWidths) {
       await expect(mobileBar).toBeHidden();
       await expect(page.locator('.public-header__apply')).toBeVisible();
     }
+  });
+}
+
+for (const width of mobileWidths) {
+  test(`published recruitment review content remains readable inside ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await page.goto('/');
+
+    const centerParagraphs = page.locator('.center-story__body p');
+    await expect(centerParagraphs).toHaveCount(3);
+    for (let index = 0; index < await centerParagraphs.count(); index += 1) {
+      await expectTextGeometry(centerParagraphs.nth(index), `${width}px center paragraph ${index + 1}`, true);
+    }
+
+    const representatives = page.getByRole('region', { name: '대표 소개' });
+    for (const name of ['박찬범', '윤지헌']) {
+      await expectTextGeometry(
+        representatives.getByRole('heading', { name }),
+        `${width}px production representative ${name}`,
+        true,
+      );
+    }
+
+    const benefits = page.getByRole('region', { name: '제공 혜택' });
+    const benefitTitles = benefits.getByRole('heading', { level: 4 });
+    const benefitDescriptions = benefits.locator('.benefits-rules__benefits p');
+    await expect(benefitTitles).toHaveCount(5);
+    await expect(benefitDescriptions).toHaveCount(5);
+    for (let index = 0; index < 5; index += 1) {
+      await expectTextGeometry(benefitTitles.nth(index), `${width}px benefit title ${index + 1}`, true);
+      await expectTextGeometry(benefitDescriptions.nth(index), `${width}px benefit description ${index + 1}`, true);
+    }
+
+    const draftNotes = page.getByRole('note');
+    await expect(draftNotes).toHaveCount(2);
+    for (let index = 0; index < await draftNotes.count(); index += 1) {
+      await expectTextGeometry(draftNotes.nth(index), `${width}px draft notice ${index + 1}`, true);
+    }
+    await expectTextGeometry(
+      page.getByRole('heading', { name: '1차 채용 절차안' }),
+      `${width}px draft hiring process heading`,
+    );
+    await expectTextGeometry(
+      page.getByRole('heading', { name: '1차 채용 검토안' }),
+      `${width}px draft positions heading`,
+    );
+    await expectTextGeometry(
+      page.locator('.position-summary__action'),
+      `${width}px application preview CTA`,
+      true,
+    );
+
+    await expectNoDocumentOverflow(page);
   });
 }
 
@@ -408,7 +461,7 @@ test('absolute and relative fragment links resolve without leaving the SPA', asy
     === document.querySelector('#root')
   ))).toBe(true);
 
-  await page.getByRole('link', { name: '지원서 작성하기' }).click();
+  await page.locator('.hero-evidence__action').click();
   await expect(page).toHaveURL(/\/apply$/);
   await expect(page.getByRole('heading', { name: '기본 정보' })).toBeVisible();
 

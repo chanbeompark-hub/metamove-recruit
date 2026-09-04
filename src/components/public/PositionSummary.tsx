@@ -5,6 +5,8 @@ type PositionSummaryProps = {
   positions: PublishedSiteContent['positions'];
 };
 
+const draftNotice = '1차 채용안 · 급여·고용형태·근무조건·일정은 확정 후 안내합니다.';
+
 export function PositionSummary({ positions }: PositionSummaryProps) {
   const availablePositions = positions.filter(({ title }) => title.trim());
 
@@ -12,13 +14,17 @@ export function PositionSummary({ positions }: PositionSummaryProps) {
     return null;
   }
 
+  const hasDraftPosition = availablePositions.some(({ status }) => status === 'draft');
+  const sectionTitle = hasDraftPosition ? '1차 채용 검토안' : '채용 포지션';
+
   return (
     <section className="position-summary" id="positions" aria-labelledby="positions-title">
       <div className="public-section__inner">
         <header className="public-section__header public-section__header--inverse">
-          <p className="public-section__eyebrow">OPEN POSITIONS</p>
-          <h2 id="positions-title">채용 포지션</h2>
+          <p className="public-section__eyebrow">{hasDraftPosition ? 'RECRUITMENT REVIEW' : 'OPEN POSITIONS'}</p>
+          <h2 id="positions-title">{sectionTitle}</h2>
         </header>
+        {hasDraftPosition && <p className="recruitment-draft-notice recruitment-draft-notice--inverse" role="note">{draftNotice}</p>}
         <div className="position-summary__list">
           {availablePositions.map((position, index) => (
             <article className="position-summary__item" key={position.id}>
@@ -49,7 +55,7 @@ export function PositionSummary({ positions }: PositionSummaryProps) {
           ))}
         </div>
         <Link className="position-summary__action" to="/apply">
-          지원 페이지로 이동
+          지원서 미리보기
           <span aria-hidden="true">→</span>
         </Link>
       </div>

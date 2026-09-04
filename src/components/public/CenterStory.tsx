@@ -6,7 +6,9 @@ type CenterStoryProps = {
 };
 
 export function CenterStory({ center }: CenterStoryProps) {
-  if (!center.title.trim() || !center.body.trim()) {
+  const paragraphs = center.paragraphs.filter((paragraph) => paragraph.trim());
+
+  if (!center.title.trim() || paragraphs.length === 0) {
     return null;
   }
 
@@ -19,7 +21,9 @@ export function CenterStory({ center }: CenterStoryProps) {
         <div className="center-story__copy">
           <p className="public-section__eyebrow">메타무브짐</p>
           <h2>{center.title}</h2>
-          <p className="center-story__body">{center.body}</p>
+          <div className="center-story__body">
+            {paragraphs.map((paragraph) => <p data-testid="center-story-paragraph" key={paragraph}>{paragraph}</p>)}
+          </div>
         </div>
         {hasApprovedMedia && (
           <figure className="center-story__media">

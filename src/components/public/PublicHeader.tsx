@@ -9,6 +9,7 @@ type PublicHeaderProps = {
 export function PublicHeader({ content }: PublicHeaderProps) {
   const renderedSectionIds = getRenderedPublicSectionIds(content);
   const hasRules = content.rules.some(({ label, value }) => label.trim() && value.trim());
+  const hasDraftPositions = content.positions.some(({ status, title }) => status === 'draft' && title.trim());
   const growthAndVisionTarget = renderedSectionIds.has('vision')
     ? 'vision'
     : renderedSectionIds.has('growth') ? 'growth' : undefined;
@@ -17,7 +18,7 @@ export function PublicHeader({ content }: PublicHeaderProps) {
     ...(growthAndVisionTarget ? [{ label: '성장과 비전', id: growthAndVisionTarget }] : []),
     { label: '대표 소개', id: 'representatives' },
     { label: hasRules ? '혜택·규정' : '제공 혜택', id: 'benefits-rules' },
-    { label: '채용 포지션', id: 'positions' },
+    { label: hasDraftPositions ? '채용 검토안' : '채용 포지션', id: 'positions' },
   ];
 
   return (
@@ -40,7 +41,7 @@ export function PublicHeader({ content }: PublicHeaderProps) {
               </a>
             ))}
           </div>
-          <Link className="public-header__apply" to="/apply">지원하기</Link>
+          <Link className="public-header__apply" to="/apply">지원서 미리보기</Link>
         </nav>
       </div>
     </header>

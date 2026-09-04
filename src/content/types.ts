@@ -45,6 +45,7 @@ export type Position = {
   level: 'entry' | 'experienced';
   requirements: string[];
   preferences: string[];
+  status?: 'draft' | 'confirmed';
   published: boolean;
 };
 
@@ -64,6 +65,7 @@ export type GrowthTrack = {
 export type HiringProcess = PublishableSection<{
   title: string;
   steps: string[];
+  status?: 'draft' | 'confirmed';
 }>;
 
 export type EvidenceItem = {
@@ -79,7 +81,7 @@ export type SiteContent = {
   evidence: EvidenceItem[];
   center: PublishableSection<ResponsiveMedia & {
     title: string;
-    body: string;
+    paragraphs: string[];
   }>;
   expansionVision: ExpansionVision;
   representatives: Representative[];

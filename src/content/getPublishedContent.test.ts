@@ -13,7 +13,7 @@ describe('getPublishedContent', () => {
         published: false,
       },
       evidence: [],
-      center: { title: '', body: '', published: false },
+      center: { title: '', paragraphs: [], published: false },
       expansionVision: { title: '', body: '', published: false },
       representatives: [], growthTracks: [], benefits: [], rules: [], positions: [],
       hiringProcess: { title: '', steps: [], published: false },
@@ -30,7 +30,7 @@ describe('getPublishedContent', () => {
     const result = getPublishedContent({
       hero: { headline: '좋은 트레이너가 오래 성장하는 시스템.', published: true },
       evidence: [],
-      center: { title: '센터', body: '', published: false },
+      center: { title: '센터', paragraphs: [], published: false },
       expansionVision: { title: '', body: '', published: false },
       representatives: [], growthTracks: [], benefits: [], rules: [], positions: [],
       hiringProcess: { title: '', steps: [], published: false },
@@ -48,7 +48,7 @@ describe('getPublishedContent', () => {
         { index: '02', label: '보상', href: '#reward', published: false },
         { index: '03', label: '확장', href: '#expansion', published: true }
       ],
-      center: { title: '센터', body: '', published: false },
+      center: { title: '센터', paragraphs: [], published: false },
       expansionVision: { title: '', body: '', published: false },
       representatives: [
         { id: 'approved', name: '승인된 사람', role: '트레이너', career: [], expertise: [], imageSrc: '/approved.jpg', imageAlt: '승인된 사람', published: true },
@@ -81,7 +81,7 @@ describe('getPublishedContent', () => {
     const result = getPublishedContent({
       hero: { headline: '승인된 히어로', published: true },
       evidence: [],
-      center: { title: '', body: '', published: false },
+      center: { title: '', paragraphs: [], published: false },
       expansionVision: {
         title: '테스트 확장 비전',
         body: '테스트 확장 설명',
@@ -142,7 +142,7 @@ describe('getPublishedContent', () => {
       evidence: [],
       center: {
         title: '미승인 센터',
-        body: '미승인 센터 설명',
+        paragraphs: ['미승인 센터 설명'],
         imageSrc: '/center-draft.jpg',
         imageAlt: '미승인 센터 이미지',
         desktopObjectPosition: '60% 40%',
@@ -179,7 +179,7 @@ describe('getPublishedContent', () => {
     ]);
     expect(result.center).toMatchObject({
       title: '상동에서 PT를 제대로 배우는 공간',
-      body: expect.stringContaining('상동역에서 도보 3~4분'),
+      paragraphs: expect.arrayContaining([expect.stringContaining('상동역에서 도보 3~4분')]),
     });
     expect(result.center).not.toHaveProperty('imageSrc');
     expect(result.expansionVision?.body).toContain('목표');
@@ -194,11 +194,22 @@ describe('getPublishedContent', () => {
       '운동 공간 사용',
       '세미나 참여 기회',
     ]);
+    expect(result.benefits.map(({ description }) => description)).toEqual([
+      '트레이닝 교육을 지원합니다.',
+      '마케팅 교육을 지원합니다.',
+      '유니폼을 제공합니다.',
+      '센터 운동 공간을 사용할 수 있습니다.',
+      '세미나 참여 기회를 제공합니다.',
+    ]);
     expect(result.rules).toEqual([]);
-    expect(result.positions.map(({ title }) => title)).toEqual(['신입 퍼스널 트레이너', '경력 퍼스널 트레이너']);
+    expect(result.positions.map(({ title, status }) => ({ title, status }))).toEqual([
+      { title: '신입 퍼스널 트레이너', status: 'draft' },
+      { title: '경력 퍼스널 트레이너', status: 'draft' },
+    ]);
     expect(result.hiringProcess).toEqual({
       title: '채용 절차',
       steps: ['지원서 제출', '서류 검토', '대표 인터뷰', '수업·코칭 역량 확인', '최종 안내'],
+      status: 'draft',
     });
   });
 });
