@@ -279,6 +279,24 @@ for (const width of mobileWidths) {
   });
 }
 
+test('draft hiring process keeps its introduction in the left desktop column', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await page.goto('/');
+
+  const intro = page.locator('.hiring-process__intro');
+  const steps = page.locator('.hiring-process__steps');
+  await expect(intro).toBeVisible();
+  await expect(steps).toBeVisible();
+  await expect(intro.getByRole('note')).toHaveText('1차 채용안 · 급여·고용형태·근무조건·일정은 확정 후 안내합니다.');
+
+  const [introBox, stepsBox] = await Promise.all([intro.boundingBox(), steps.boundingBox()]);
+  expect(introBox).not.toBeNull();
+  expect(stepsBox).not.toBeNull();
+  expect(introBox!.x).toBeLessThan(stepsBox!.x);
+  expect(Math.abs(introBox!.y - stepsBox!.y)).toBeLessThanOrEqual(1);
+  await expectNoDocumentOverflow(page);
+});
+
 for (const width of testedWidths) {
   test(`full fixture route exposes every public section inside ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });

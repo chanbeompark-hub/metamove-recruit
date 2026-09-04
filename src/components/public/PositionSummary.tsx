@@ -14,7 +14,7 @@ export function PositionSummary({ positions }: PositionSummaryProps) {
     return null;
   }
 
-  const hasDraftPosition = availablePositions.some(({ status }) => status === 'draft');
+  const hasDraftPosition = availablePositions.some(({ status }) => status !== 'confirmed');
   const sectionTitle = hasDraftPosition ? '1차 채용 검토안' : '채용 포지션';
 
   return (

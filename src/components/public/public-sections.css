@@ -61,6 +61,15 @@
   gap: clamp(var(--space-8), 7vw, var(--space-24));
 }
 
+.hiring-process__grid {
+  grid-template-areas: "intro steps";
+}
+
+.hiring-process__intro {
+  grid-area: intro;
+  align-self: start;
+}
+
 .expansion-vision .public-section__header,
 .hiring-process .public-section__header {
   display: block;
@@ -319,6 +328,7 @@
 }
 
 .hiring-process__steps {
+  grid-area: steps;
   margin: 0;
   padding: 0;
   border-block-start: 1px solid var(--color-line);
@@ -588,6 +598,12 @@
   .expansion-vision__grid,
   .hiring-process__grid {
     grid-template-columns: 1fr;
+  }
+
+  .hiring-process__grid {
+    grid-template-areas:
+      "intro"
+      "steps";
   }
 
   .center-story__index {

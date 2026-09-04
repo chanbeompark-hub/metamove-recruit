@@ -117,6 +117,7 @@ export const fixtureSiteContent: SiteContent = {
       level: 'entry',
       requirements: ['테스트 기본 교육'],
       preferences: ['고객 경험 학습'],
+      status: 'confirmed',
       published: true,
     },
     {
@@ -125,6 +126,7 @@ export const fixtureSiteContent: SiteContent = {
       level: 'experienced',
       requirements: ['테스트 현장 경험'],
       preferences: ['리더십'],
+      status: 'confirmed',
       published: true,
     },
     {
@@ -133,12 +135,14 @@ export const fixtureSiteContent: SiteContent = {
       level: 'experienced',
       requirements: ['미공개 조건'],
       preferences: [],
+      status: 'draft',
       published: false,
     },
   ],
   hiringProcess: {
     title: '테스트용 채용 절차',
     steps: ['테스트 서류 검토', '테스트 면접'],
+    status: 'confirmed',
     published: true,
   },
 };

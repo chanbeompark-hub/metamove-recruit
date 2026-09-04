@@ -9,7 +9,7 @@ type PublicHeaderProps = {
 export function PublicHeader({ content }: PublicHeaderProps) {
   const renderedSectionIds = getRenderedPublicSectionIds(content);
   const hasRules = content.rules.some(({ label, value }) => label.trim() && value.trim());
-  const hasDraftPositions = content.positions.some(({ status, title }) => status === 'draft' && title.trim());
+  const hasDraftPositions = content.positions.some(({ status, title }) => status !== 'confirmed' && title.trim());
   const growthAndVisionTarget = renderedSectionIds.has('vision')
     ? 'vision'
     : renderedSectionIds.has('growth') ? 'growth' : undefined;

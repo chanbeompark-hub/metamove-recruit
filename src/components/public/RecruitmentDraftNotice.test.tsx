@@ -33,5 +33,24 @@ describe('recommended recruitment content', () => {
 
     expect(screen.getByRole('note')).toHaveTextContent(draftNotice);
     expect(screen.getByRole('region', { name: '1차 채용 절차안' })).toBeInTheDocument();
+    expect(screen.getByRole('note').parentElement).toHaveClass('hiring-process__intro');
+  });
+
+  it('fails safe to a recruitment review when runtime status is not confirmed', () => {
+    render(
+      <MemoryRouter>
+        <PositionSummary positions={[{
+          id: 'unconfirmed',
+          title: '확인 전 퍼스널 트레이너',
+          level: 'entry',
+          requirements: [],
+          preferences: [],
+          status: undefined as unknown as 'draft' | 'confirmed',
+        }]} />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByRole('region', { name: '1차 채용 검토안' })).toBeInTheDocument();
+    expect(screen.getByRole('note')).toHaveTextContent(draftNotice);
   });
 });

@@ -11,16 +11,19 @@ export function HiringProcess({ process }: HiringProcessProps) {
     return null;
   }
 
-  const sectionTitle = process.status === 'draft' ? '1차 채용 절차안' : process.title;
+  const isDraft = process.status !== 'confirmed';
+  const sectionTitle = isDraft ? '1차 채용 절차안' : process.title;
 
   return (
     <section className="hiring-process" id="hiring-process" aria-labelledby="hiring-process-title">
       <div className="public-section__inner hiring-process__grid">
-        <header className="public-section__header">
-          <p className="public-section__eyebrow">{process.status === 'draft' ? 'RECRUITMENT REVIEW' : 'HIRING PROCESS'}</p>
-          <h2 id="hiring-process-title">{sectionTitle}</h2>
-        </header>
-        {process.status === 'draft' && <p className="recruitment-draft-notice" role="note">{draftNotice}</p>}
+        <div className="hiring-process__intro">
+          <header className="public-section__header">
+            <p className="public-section__eyebrow">{isDraft ? 'RECRUITMENT REVIEW' : 'HIRING PROCESS'}</p>
+            <h2 id="hiring-process-title">{sectionTitle}</h2>
+          </header>
+          {isDraft && <p className="recruitment-draft-notice" role="note">{draftNotice}</p>}
+        </div>
         <ol className="hiring-process__steps">
           {process.steps.map((step, index) => (
             <li key={step}>

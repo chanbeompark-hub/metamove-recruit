@@ -16,7 +16,7 @@ describe('getPublishedContent', () => {
       center: { title: '', paragraphs: [], published: false },
       expansionVision: { title: '', body: '', published: false },
       representatives: [], growthTracks: [], benefits: [], rules: [], positions: [],
-      hiringProcess: { title: '', steps: [], published: false },
+      hiringProcess: { title: '', steps: [], status: 'draft', published: false },
     });
 
     expect(result.hero).toEqual({
@@ -33,7 +33,7 @@ describe('getPublishedContent', () => {
       center: { title: '센터', paragraphs: [], published: false },
       expansionVision: { title: '', body: '', published: false },
       representatives: [], growthTracks: [], benefits: [], rules: [], positions: [],
-      hiringProcess: { title: '', steps: [], published: false },
+      hiringProcess: { title: '', steps: [], status: 'draft', published: false },
     });
 
     expect(result.hero.headline).toBe('좋은 트레이너가 오래 성장하는 시스템.');
@@ -63,11 +63,11 @@ describe('getPublishedContent', () => {
         { id: 'draft', label: '미승인 규칙', value: '', published: false }
       ],
       positions: [
-        { id: 'approved', title: '승인된 포지션', level: 'entry', requirements: [], preferences: [], published: true },
-        { id: 'draft', title: '미승인 포지션', level: 'experienced', requirements: [], preferences: [], published: false }
+        { id: 'approved', title: '승인된 포지션', level: 'entry', requirements: [], preferences: [], status: 'confirmed', published: true },
+        { id: 'draft', title: '미승인 포지션', level: 'experienced', requirements: [], preferences: [], status: 'draft', published: false }
       ],
       growthTracks: [],
-      hiringProcess: { title: '', steps: [], published: false },
+      hiringProcess: { title: '', steps: [], status: 'draft', published: false },
     });
 
     expect(result.evidence.map(({ label }) => label)).toEqual(['성장', '확장']);
@@ -110,6 +110,7 @@ describe('getPublishedContent', () => {
       hiringProcess: {
         title: '공개되면 안 되는 채용 절차',
         steps: ['공개되면 안 되는 전형 단계'],
+        status: 'draft',
         published: false,
       },
     });
@@ -155,7 +156,7 @@ describe('getPublishedContent', () => {
       benefits: [],
       rules: [],
       positions: [],
-      hiringProcess: { title: '', steps: [], published: false },
+      hiringProcess: { title: '', steps: [], status: 'draft', published: false },
     });
 
     expect(result.hero).toMatchObject({

@@ -70,7 +70,7 @@ describe('EvidenceRail', () => {
       benefits: [],
       rules: [],
       positions: [],
-      hiringProcess: { title: '', steps: [], published: false },
+      hiringProcess: { title: '', steps: [], status: 'draft', published: false },
     };
     const publishedContent = getPublishedContent(content);
 
