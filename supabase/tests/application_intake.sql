@@ -34,7 +34,8 @@ select results_eq(
         'admin_profiles',
         'application_reviews',
         'application_status_history',
-        'submission_rate_limits'
+        'submission_rate_limits',
+        'application_file_reconciliations'
       ])
       and a.atttypid = 'uuid'::regtype
     order by c.relname
@@ -43,6 +44,7 @@ select results_eq(
     values
       ('admin_profiles'::text),
       ('application_answers'::text),
+      ('application_file_reconciliations'::text),
       ('application_files'::text),
       ('application_reviews'::text),
       ('application_status_history'::text),
@@ -66,7 +68,8 @@ select results_eq(
         'admin_profiles',
         'application_reviews',
         'application_status_history',
-        'submission_rate_limits'
+        'submission_rate_limits',
+        'application_file_reconciliations'
       ])
       and c.relrowsecurity
     order by c.relname
@@ -75,6 +78,7 @@ select results_eq(
     values
       ('admin_profiles'::text),
       ('application_answers'::text),
+      ('application_file_reconciliations'::text),
       ('application_files'::text),
       ('application_reviews'::text),
       ('application_status_history'::text),
@@ -122,6 +126,7 @@ select is(
         ('public', 'application_reviews'),
         ('public', 'application_status_history'),
         ('public', 'submission_rate_limits'),
+        ('public', 'application_file_reconciliations'),
         ('storage', 'buckets'),
         ('storage', 'objects')
     ) as targets(target_schema, target_table)
@@ -313,6 +318,41 @@ select is(
   ),
   'postgres',
   'application graph RPC has the trusted postgres owner'
+);
+select is(
+  pg_catalog.has_function_privilege('anon', 'public.find_application_by_idempotency(uuid)', 'EXECUTE'),
+  false,
+  'anon has no idempotency lookup RPC execute privilege'
+);
+select is(
+  pg_catalog.has_function_privilege('authenticated', 'public.enqueue_application_file_reconciliation(uuid,uuid,text[],text)', 'EXECUTE'),
+  false,
+  'authenticated has no reconciliation RPC execute privilege'
+);
+select is(
+  pg_catalog.has_function_privilege('service_role', 'public.find_application_by_idempotency(uuid)', 'EXECUTE')
+    and pg_catalog.has_function_privilege('service_role', 'public.enqueue_application_file_reconciliation(uuid,uuid,text[],text)', 'EXECUTE')
+    and pg_catalog.has_function_privilege('service_role', 'public.purge_submission_rate_limits(timestamptz,integer)', 'EXECUTE'),
+  true,
+  'service role can execute the idempotency, reconciliation, and bounded purge RPCs'
+);
+select is(
+  (
+    select bool_and(prosecdef and proconfig = array['search_path=""']::text[])
+    from pg_catalog.pg_proc
+    where oid = any(array[
+      'public.find_application_by_idempotency(uuid)'::regprocedure,
+      'public.enqueue_application_file_reconciliation(uuid,uuid,text[],text)'::regprocedure,
+      'public.purge_submission_rate_limits(timestamptz,integer)'::regprocedure
+    ])
+  ),
+  true,
+  'new service RPCs are SECURITY DEFINER with exactly an empty fixed search_path'
+);
+select is(
+  pg_catalog.to_regclass('public.submission_rate_limits_attempted_at_idx') is not null,
+  true,
+  'rate-limit retention has a global attempted_at index'
 );
 select is(
   (
@@ -563,7 +603,8 @@ select lives_ok(
       pg_catalog.jsonb_build_object(
         'application', pg_catalog.jsonb_build_object(
           'id', '30000000-0000-4000-8000-000000000001',
-          'receipt_code', 'RPC-ATOMIC-001',
+          'idempotency_key', '50000000-0000-4000-8000-000000000001',
+          'receipt_code', 'MMG-00000000000000000000000000000001',
           'name', 'RPC가상지원자',
           'phone', '010-2222-3333',
           'email', 'rpc-applicant@example.test',
@@ -582,6 +623,18 @@ select lives_ok(
             'answer_text', repeat('가', 100),
             'answer_json', null,
             'display_order', 1
+          ),
+          pg_catalog.jsonb_build_object(
+            'answer_key', 'strengths',
+            'answer_text', repeat('나', 100),
+            'answer_json', null,
+            'display_order', 2
+          ),
+          pg_catalog.jsonb_build_object(
+            'answer_key', 'goals',
+            'answer_text', repeat('다', 100),
+            'answer_json', null,
+            'display_order', 3
           )
         ),
         'files', pg_catalog.jsonb_build_array(
@@ -590,7 +643,8 @@ select lives_ok(
             'original_filename', 'rpc-resume.pdf',
             'mime_type', 'application/pdf',
             'size_bytes', 1024,
-            'file_kind', 'resume'
+            'file_kind', 'resume',
+            'security_status', 'quarantined'
           )
         )
       )
@@ -601,7 +655,7 @@ select lives_ok(
 reset role;
 
 select is(
-  (select count(*) from public.applications where receipt_code = 'RPC-ATOMIC-001'),
+  (select count(*) from public.applications where receipt_code = 'MMG-00000000000000000000000000000001'),
   1::bigint,
   'atomic graph RPC inserts one application'
 );
@@ -611,7 +665,7 @@ select is(
     from public.application_answers
     where application_id = '30000000-0000-4000-8000-000000000001'
   ),
-  1::bigint,
+  3::bigint,
   'atomic graph RPC inserts its answers'
 );
 select is(
@@ -624,6 +678,152 @@ select is(
   'atomic graph RPC inserts its file metadata'
 );
 
+create temporary table application_graph_fixture as
+select pg_catalog.jsonb_build_object(
+  'application', pg_catalog.jsonb_build_object(
+    'id', a.id::text, 'idempotency_key', a.idempotency_key::text, 'receipt_code', a.receipt_code,
+    'name', a.name, 'phone', a.phone, 'email', a.email, 'level', a.level,
+    'available_from', a.available_from::text, 'career_months', a.career_months,
+    'specialties', to_jsonb(a.specialties), 'certifications', to_jsonb(a.certifications),
+    'privacy_consent_version', a.privacy_consent_version,
+    'privacy_consent_at', a.privacy_consent_at::text, 'retention_until', a.retention_until::text
+  ),
+  'answers', (select jsonb_agg(jsonb_build_object('answer_key',answer_key,'answer_text',answer_text,'answer_json',answer_json,'display_order',display_order) order by display_order) from public.application_answers where application_id = a.id),
+  'files', (select jsonb_agg(jsonb_build_object('storage_path',storage_path,'original_filename',original_filename,'mime_type',mime_type,'size_bytes',size_bytes,'file_kind',file_kind,'security_status',security_status)) from public.application_files where application_id = a.id)
+) as graph
+from public.applications a
+where a.id = '30000000-0000-4000-8000-000000000001';
+grant select on application_graph_fixture to service_role;
+
+set local role service_role;
+select is(
+  (select inserted from public.insert_application_graph((select graph from application_graph_fixture))),
+  false,
+  'same idempotency key replays without another insert'
+);
+select is(
+  (
+    select pg_catalog.jsonb_build_object(
+      'application_id', application_id::text,
+      'receipt_code', receipt_code
+    )
+    from public.find_application_by_idempotency(
+      '50000000-0000-4000-8000-000000000001'::uuid
+    )
+  ),
+  pg_catalog.jsonb_build_object(
+    'application_id', '30000000-0000-4000-8000-000000000001',
+    'receipt_code', 'MMG-00000000000000000000000000000001'
+  ),
+  'idempotency lookup returns the authoritative application identity and receipt'
+);
+select throws_ok(
+  'select public.insert_application_graph((select graph - ''files'' from application_graph_fixture))',
+  '22023', null, 'graph rejects a missing top-level key'
+);
+select throws_ok(
+  'select public.insert_application_graph((select jsonb_set(graph, ''{answers}'', ''{}''::jsonb) from application_graph_fixture))',
+  '22023', null, 'graph rejects a wrong JSON type'
+);
+select throws_ok(
+  'select public.insert_application_graph((select graph #- ''{application,name}'' from application_graph_fixture))',
+  '22023', null, 'graph rejects a missing scalar'
+);
+select throws_ok(
+  'select public.insert_application_graph((select jsonb_set(graph, ''{application,name}'', ''""''::jsonb) from application_graph_fixture))',
+  '22023', null, 'graph rejects an empty scalar'
+);
+select throws_ok(
+  'select public.insert_application_graph((select jsonb_set(graph, ''{answers}'', ''[]''::jsonb) from application_graph_fixture))',
+  '22023', null, 'graph rejects empty and incomplete essays'
+);
+select throws_ok(
+  'select public.insert_application_graph((select jsonb_set(graph, ''{answers}'', (graph->''answers'') || (graph->''answers''->0)) from application_graph_fixture))',
+  '22023', null, 'graph rejects duplicate essays'
+);
+select throws_ok(
+  'select public.insert_application_graph((select jsonb_set(graph, ''{files}'', ''[]''::jsonb) from application_graph_fixture))',
+  '22023', null, 'graph rejects a missing resume'
+);
+select throws_ok(
+  'select public.insert_application_graph((select jsonb_set(graph, ''{files,0,file_kind}'', ''"portfolio"''::jsonb) from application_graph_fixture))',
+  '22023', null, 'graph rejects a portfolio-only graph'
+);
+select throws_ok(
+  'select public.insert_application_graph((select jsonb_set(graph, ''{files}'', (graph->''files'') || (graph->''files''->0)) from application_graph_fixture))',
+  '22023', null, 'graph rejects duplicate resume metadata'
+);
+select throws_ok(
+  'select public.insert_application_graph((select jsonb_set(graph, ''{files,0,storage_path}'', ''"applications/00000000-0000-4000-8000-000000000000/40000000-0000-4000-8000-000000000001.pdf"''::jsonb) from application_graph_fixture))',
+  '22023', null, 'graph rejects a path outside the application namespace'
+);
+select throws_ok(
+  $sql$
+    select public.insert_application_graph(
+      (select jsonb_set(
+        jsonb_set(
+          jsonb_set(graph, '{application,id}', '"30000000-0000-4000-8000-000000000099"'),
+          '{application,idempotency_key}', '"50000000-0000-4000-8000-000000000099"'
+        ),
+        '{files,0,storage_path}',
+        '"applications/30000000-0000-4000-8000-000000000099/40000000-0000-4000-8000-000000000001.pdf"'
+      ) from application_graph_fixture)
+    )
+  $sql$,
+  '23505', null, 'a different idempotency key cannot reuse a receipt'
+);
+reset role;
+
+create function pg_temp.reject_test_application_file()
+returns trigger
+language plpgsql
+as $$
+begin
+  if new.application_id = '30000000-0000-4000-8000-000000000098'::uuid then
+    raise exception using errcode = 'P0001', message = 'forced test file failure';
+  end if;
+  return new;
+end;
+$$;
+create trigger reject_test_application_file
+before insert on public.application_files
+for each row execute function pg_temp.reject_test_application_file();
+
+set local role service_role;
+select throws_ok(
+  $sql$
+    select public.insert_application_graph(
+      (select jsonb_set(
+        jsonb_set(
+          jsonb_set(
+            jsonb_set(graph, '{application,id}', '"30000000-0000-4000-8000-000000000098"'),
+            '{application,idempotency_key}', '"50000000-0000-4000-8000-000000000098"'
+          ),
+          '{application,receipt_code}', '"MMG-00000000000000000000000000000098"'
+        ),
+        '{files,0,storage_path}',
+        '"applications/30000000-0000-4000-8000-000000000098/40000000-0000-4000-8000-000000000001.pdf"'
+      ) from application_graph_fixture)
+    )
+  $sql$,
+  'P0001',
+  null,
+  'a failure after parent and answer inserts aborts the complete graph transaction'
+);
+reset role;
+drop trigger reject_test_application_file on public.application_files;
+
+select is(
+  (select count(*) from public.applications where id = '30000000-0000-4000-8000-000000000098'),
+  0::bigint,
+  'file insert failure rolls back the application parent'
+);
+select is(
+  (select count(*) from public.application_answers where application_id = '30000000-0000-4000-8000-000000000098'),
+  0::bigint,
+  'file insert failure rolls back application answers'
+);
+
 set local role service_role;
 select throws_ok(
   $sql$
@@ -631,7 +831,8 @@ select throws_ok(
       pg_catalog.jsonb_build_object(
         'application', pg_catalog.jsonb_build_object(
           'id', '30000000-0000-4000-8000-000000000002',
-          'receipt_code', 'RPC-ATOMIC-ROLLBACK',
+          'idempotency_key', '50000000-0000-4000-8000-000000000002',
+          'receipt_code', 'MMG-00000000000000000000000000000002',
           'name', 'RPC경력지원자',
           'phone', '010-4444-5555',
           'email', 'rpc-experienced@example.test',
@@ -649,14 +850,14 @@ select throws_ok(
       )
     )
   $sql$,
-  '23514',
+  '22023',
   null,
   'invalid career graph rejects the entire RPC statement'
 );
 reset role;
 
 select is(
-  (select count(*) from public.applications where receipt_code = 'RPC-ATOMIC-ROLLBACK'),
+  (select count(*) from public.applications where receipt_code = 'MMG-00000000000000000000000000000002'),
   0::bigint,
   'failed graph RPC leaves no partial application parent'
 );
@@ -977,6 +1178,75 @@ select like(
   ),
   '%pg_advisory_xact_lock%',
   'quota RPC serializes concurrent calls per actor with an advisory transaction lock'
+);
+
+insert into public.submission_rate_limits (actor_hash, attempted_at)
+values
+  ('dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd', now() - interval '2 days'),
+  ('eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee', now() - interval '2 days');
+
+set local role service_role;
+select is(
+  public.purge_submission_rate_limits(now() - interval '1 day', 1),
+  1::bigint,
+  'global rate-limit purge deletes at most the requested batch size'
+);
+reset role;
+select is(
+  (
+    select count(*)
+    from public.submission_rate_limits
+    where actor_hash in (
+      'dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd',
+      'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee'
+    )
+  ),
+  1::bigint,
+  'bounded purge leaves the next old row for a later batch'
+);
+
+set local role service_role;
+select is(
+  public.purge_submission_rate_limits(now() - interval '1 day', 10000),
+  1::bigint,
+  'a later global purge removes the remaining old rate row'
+);
+select throws_ok(
+  'select public.purge_submission_rate_limits(now(), 0)',
+  '22023',
+  null,
+  'global rate-limit purge rejects an invalid batch size'
+);
+select lives_ok(
+  $sql$
+    select public.enqueue_application_file_reconciliation(
+      '60000000-0000-4000-8000-000000000001',
+      '70000000-0000-4000-8000-000000000001',
+      array['applications/60000000-0000-4000-8000-000000000001/80000000-0000-4000-8000-000000000001.pdf'],
+      'cleanup_failed'
+    )
+  $sql$,
+  'service role can durably enqueue an application-file reconciliation'
+);
+select throws_ok(
+  $sql$
+    select public.enqueue_application_file_reconciliation(
+      '60000000-0000-4000-8000-000000000001',
+      '70000000-0000-4000-8000-000000000001',
+      array['applications/00000000-0000-4000-8000-000000000000/80000000-0000-4000-8000-000000000001.pdf'],
+      'cleanup_failed'
+    )
+  $sql$,
+  '22023',
+  null,
+  'reconciliation rejects paths outside the application namespace'
+);
+reset role;
+
+select is(
+  (select count(*) from public.application_file_reconciliations where idempotency_key = '70000000-0000-4000-8000-000000000001'),
+  1::bigint,
+  'reconciliation RPC records one durable pending cleanup item'
 );
 
 select * from finish();

@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import { createSupabaseApplicationRepository } from './repository';
+import { createSupabaseApplicationRepository, type SupabaseApplicationClient } from './repository';
 import type { PersistedApplication } from './types';
 
 function graph(): PersistedApplication {
   return {
     application: {
       id: '10000000-0000-4000-8000-000000000001',
+      idempotencyKey: '30000000-0000-4000-8000-000000000003',
       receiptCode: 'MMG-00112233445566778899AABBCCDDEEFF',
       name: '가상지원자',
       phone: '010-1234-5678',
@@ -31,6 +32,7 @@ function graph(): PersistedApplication {
       mimeType: 'application/pdf',
       sizeBytes: 8,
       fileKind: 'resume',
+      securityStatus: 'quarantined',
     }],
   };
 }
@@ -38,10 +40,11 @@ function graph(): PersistedApplication {
 function client(options: {
   rpcData?: unknown;
   rpcError?: unknown;
+  rpcImplementation?: (name: string) => { data: unknown; error: unknown };
   uploadError?: unknown;
   removeError?: unknown;
 } = {}) {
-  const rpc = vi.fn(async () => ({ data: options.rpcData ?? true, error: options.rpcError ?? null }));
+  const rpc = vi.fn(async (name: string): Promise<{ data: unknown; error: unknown }> => options.rpcImplementation?.(name) ?? ({ data: options.rpcData ?? true, error: options.rpcError ?? null }));
   const upload = vi.fn(async (path: string) => ({ data: { path }, error: options.uploadError ?? null }));
   const remove = vi.fn(async () => ({ data: [], error: options.removeError ?? null }));
   const from = vi.fn(() => ({ upload, remove }));
@@ -49,7 +52,7 @@ function client(options: {
     throw new Error('graph persistence must not use separate table inserts');
   });
   return {
-    fake: { rpc, storage: { from }, from: tableFrom },
+    fake: { rpc, storage: { from }, from: tableFrom } as unknown as SupabaseApplicationClient,
     rpc,
     upload,
     remove,
@@ -101,7 +104,7 @@ describe('createSupabaseApplicationRepository', () => {
     const file = new File(['%PDF-1.7'], 'resume.pdf', { type: 'application/pdf' });
     const path = 'applications/id/random.pdf';
 
-    await expect(repository.uploadFile(path, file)).resolves.toBe(path);
+    await expect(repository.uploadFile(path, file, 'application/pdf')).resolves.toBe(path);
     expect(from).toHaveBeenCalledWith('application-files');
     expect(upload).toHaveBeenCalledWith(path, file, {
       cacheControl: '3600',
@@ -111,25 +114,53 @@ describe('createSupabaseApplicationRepository', () => {
   });
 
   it('persists the entire graph through one atomic RPC boundary', async () => {
-    const { fake, rpc, tableFrom } = client();
+    const { fake, rpc, tableFrom } = client({ rpcData: [{ receipt_code: 'MMG-00112233445566778899AABBCCDDEEFF', inserted: true }] });
     const repository = createSupabaseApplicationRepository(config, () => fake);
     const input = graph();
 
-    await repository.insertApplicationGraph(input);
+    await expect(repository.insertApplicationGraph(input)).resolves.toEqual({ status: 'inserted', receiptCode: input.application.receiptCode });
 
     expect(rpc).toHaveBeenCalledTimes(1);
     expect(rpc).toHaveBeenCalledWith('insert_application_graph', {
       p_graph: {
         application: expect.objectContaining({
           id: input.application.id,
+          idempotency_key: input.application.idempotencyKey,
           receipt_code: input.application.receiptCode,
           privacy_consent_version: input.application.privacyConsentVersion,
         }),
         answers: [expect.objectContaining({ answer_key: 'motivation', display_order: 1 })],
-        files: [expect.objectContaining({ storage_path: input.files[0].storagePath, file_kind: 'resume' })],
+        files: [expect.objectContaining({ storage_path: input.files[0].storagePath, file_kind: 'resume', security_status: 'quarantined' })],
       },
     });
     expect(tableFrom).not.toHaveBeenCalled();
+  });
+
+  it('classifies only the receipt unique constraint as retryable', async () => {
+    const receipt = client({ rpcError: { code: '23505', message: 'duplicate', details: 'Key violates applications_receipt_code_key' } });
+    const other = client({ rpcError: { code: '23505', message: 'duplicate', details: 'applications_pkey' } });
+
+    await expect(createSupabaseApplicationRepository(config, () => receipt.fake).insertApplicationGraph(graph())).rejects.toThrow('RECEIPT_COLLISION');
+    await expect(createSupabaseApplicationRepository(config, () => other.fake).insertApplicationGraph(graph())).rejects.toThrow('GRAPH_REJECTED');
+  });
+
+  it('classifies a thrown RPC transport failure as ambiguous', async () => {
+    const { fake } = client({ rpcImplementation: () => { throw new Error('network'); } });
+    await expect(createSupabaseApplicationRepository(config, () => fake).insertApplicationGraph(graph())).rejects.toThrow('GRAPH_AMBIGUOUS');
+  });
+
+  it('queries the authoritative application identity and receipt before enqueuing cleanup through service-only RPCs', async () => {
+    const { fake, rpc } = client({ rpcImplementation: (name) => name === 'find_application_by_idempotency'
+      ? { data: [{ application_id: graph().application.id, receipt_code: 'MMG-00112233445566778899AABBCCDDEEFF' }], error: null }
+      : { data: null, error: null } });
+    const repository = createSupabaseApplicationRepository(config, () => fake);
+
+    await expect(repository.findApplicationByIdempotencyKey(graph().application.idempotencyKey)).resolves.toEqual({
+      applicationId: graph().application.id,
+      receiptCode: graph().application.receiptCode,
+    });
+    await repository.enqueueFileReconciliation({ applicationId: graph().application.id, idempotencyKey: graph().application.idempotencyKey, paths: [graph().files[0].storagePath], reason: 'cleanup_failed' });
+    expect(rpc).toHaveBeenCalledWith('enqueue_application_file_reconciliation', expect.objectContaining({ p_paths: [graph().files[0].storagePath] }));
   });
 
   it('uses private remove for cleanup and never suppresses repository errors', async () => {

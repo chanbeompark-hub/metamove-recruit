@@ -50,6 +50,9 @@ export async function submitApplication(
   formData: FormData,
   fetcher: Fetcher = fetch,
 ): Promise<{ receiptCode: string }> {
+  if (typeof formData.get('submission_key') !== 'string') {
+    formData.set('submission_key', crypto.randomUUID());
+  }
   let response: Response;
   try {
     response = await fetcher('/api/applications', {

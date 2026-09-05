@@ -3,7 +3,10 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "engines": { "node": "24.19.x", "npm": "11.17.x" },
+  "engines": {
+    "node": "24.19.x",
+    "npm": "11.17.x"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
@@ -16,6 +19,7 @@
     "@cloudflare/pages-plugin-turnstile": "1.0.2",
     "@hookform/resolvers": "5.9.1",
     "@supabase/supabase-js": "2.112.4",
+    "fflate": "^0.8.3",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "react-hook-form": "7.87.0",

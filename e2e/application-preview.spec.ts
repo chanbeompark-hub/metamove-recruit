@@ -1,11 +1,8 @@
 import { expect, test, type Locator, type Page } from '@playwright/test';
+import { validDocxBytes, validPdfBytes } from '../src/test/fixtures/documents';
 
 const mobileWidths = [320, 360, 390, 430] as const;
 const longAnswer = '가상 지원자가 회원의 움직임을 관찰하고 안전한 성장 경험을 함께 만들어가고 싶은 이유와 계획입니다. '.repeat(4);
-const fictionalDocx = Buffer.concat([
-  Buffer.from([0x50, 0x4b, 0x03, 0x04]),
-  Buffer.from('[Content_Types].xmlword/document.xml'),
-]);
 
 async function expectNoHorizontalOverflow(page: Page) {
   const overflow = await page.evaluate(() => ({
@@ -114,8 +111,8 @@ async function completeExperiencedPreview(page: Page) {
   await page.getByRole('button', { name: '다음' }).click();
 
   await expectStepLayout(page, '서류 첨부');
-  await page.getByLabel('이력서').setInputFiles({ name: 'fictional-resume.pdf', mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 fictional resume') });
-  await page.getByLabel('포트폴리오').setInputFiles({ name: 'fictional-portfolio.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: fictionalDocx });
+  await page.getByLabel('이력서').setInputFiles({ name: 'fictional-resume.pdf', mimeType: 'application/pdf', buffer: Buffer.from(validPdfBytes()) });
+  await page.getByLabel('포트폴리오').setInputFiles({ name: 'fictional-portfolio.docx', mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', buffer: Buffer.from(validDocxBytes()) });
   await expect(page.getByText('선택됨 · fictional-resume.pdf')).toBeVisible();
   await expect(page.getByText('선택됨 · fictional-portfolio.docx')).toBeVisible();
   await expectStepLayout(page, '서류 첨부');

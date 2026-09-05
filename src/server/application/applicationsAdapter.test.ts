@@ -3,7 +3,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   MAX_APPLICATION_REQUEST_BYTES,
-  applicationTurnstileMiddleware,
+  createApplicationTurnstileMiddleware,
   handleApplicationHttpRequest,
   type ApplicationPagesContext,
 } from '../../../functions/api/applications';
@@ -14,12 +14,15 @@ import {
   type CreateApplicationCommand,
 } from './types';
 import { validEntryInput } from '../../test/fixtures/application';
+import { validPdfBytes } from '../../test/fixtures/documents';
 
-const PDF_HEADER = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x37]);
+const PDF_HEADER = validPdfBytes();
 const env = {
   SUPABASE_URL: 'https://project.example.test',
   SUPABASE_SERVICE_ROLE_KEY: 'test-only-service-role-placeholder',
   TURNSTILE_SECRET_KEY: 'test-only-turnstile-placeholder',
+  TURNSTILE_EXPECTED_HOSTNAME: 'careers.example.test',
+  TURNSTILE_EXPECTED_ACTION: 'application-submit',
   SUBMISSION_HASH_SECRET: 'test-hmac-secret-that-is-32-bytes!',
   PRIVACY_CONSENT_VERSION: 'test-approved-v1',
   PRIVACY_RETENTION_DAYS: '30',
@@ -30,6 +33,7 @@ function multipart(options: {
   resume?: File | null;
   portfolio?: File | null;
   token?: string;
+  submissionKey?: string;
 } = {}) {
   const form = new FormData();
   if (options.payload !== undefined) form.set('payload', JSON.stringify(options.payload));
@@ -38,6 +42,7 @@ function multipart(options: {
   }
   if (options.portfolio) form.set('portfolio', options.portfolio);
   form.set('cf-turnstile-response', options.token ?? 'test-turnstile-response');
+  form.set('submission_key', options.submissionKey ?? '10000000-0000-4000-8000-000000000001');
   return form;
 }
 
@@ -50,11 +55,13 @@ function request(form = multipart({ payload: validEntryInput }), headers: Header
 }
 
 function dependencies(error?: unknown) {
-  const repository = {
+  const repository: ApplicationRepository = {
     consumeSubmissionQuota: vi.fn(async () => true),
     uploadFile: vi.fn(async (path: string) => path),
-    insertApplicationGraph: vi.fn(async () => undefined),
+    findApplicationByIdempotencyKey: vi.fn(async () => null),
+    insertApplicationGraph: vi.fn(async () => ({ status: 'inserted' as const, receiptCode: 'MMG-00112233445566778899AABBCCDDEEFF' })),
     deleteFile: vi.fn(async () => undefined),
+    enqueueFileReconciliation: vi.fn(async () => undefined),
   };
   const createApplication = vi.fn(async (
     _command: CreateApplicationCommand,
@@ -131,12 +138,14 @@ describe('handleApplicationHttpRequest', () => {
     const declared = request(multipart({ payload: validEntryInput }), {
       'Content-Length': String(MAX_APPLICATION_REQUEST_BYTES + 1),
     });
-    const oversized = request(multipart({
-      payload: validEntryInput,
-      resume: new File([new Uint8Array(MAX_APPLICATION_REQUEST_BYTES)], 'resume.pdf', {
-        type: 'application/pdf',
-      }),
-    }));
+    const oversized = new Request('https://careers.example.test/api/applications', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'multipart/form-data; boundary=test-boundary',
+        'CF-Connecting-IP': '203.0.113.8',
+      },
+      body: new Uint8Array(MAX_APPLICATION_REQUEST_BYTES + 1),
+    });
 
     const declaredResponse = await handleApplicationHttpRequest(declared, env, deps);
     const parsedResponse = await handleApplicationHttpRequest(oversized, env, deps);
@@ -144,6 +153,16 @@ describe('handleApplicationHttpRequest', () => {
     expect(declaredResponse.status).toBe(413);
     expect(parsedResponse.status).toBe(413);
     expect(deps.createApplication).not.toHaveBeenCalled();
+  }, 15_000);
+
+  it('consumes the original request stream so the raw cap cannot leave an unbounded clone branch', async () => {
+    const deps = dependencies();
+    const incoming = request();
+
+    const response = await handleApplicationHttpRequest(incoming, env, deps);
+
+    expect(response.status).toBe(201);
+    expect(incoming.bodyUsed).toBe(true);
   });
 
   it('normalizes email and IP into an HMAC actor hash without forwarding raw IP or token', async () => {
@@ -157,6 +176,7 @@ describe('handleApplicationHttpRequest', () => {
       expect.objectContaining({
         input: expect.objectContaining({ email: 'APPLICANT@EXAMPLE.TEST' }),
         actorHash: '39ddf5a03e3b0afe1dddb7fd8e6170a050d0637f43c0e98d26b07b46048fcd96',
+        idempotencyKey: '10000000-0000-4000-8000-000000000001',
       }),
       deps.repository,
       { privacyConsentVersion: 'test-approved-v1', privacyRetentionDays: 30 },
@@ -177,6 +197,7 @@ describe('handleApplicationHttpRequest', () => {
     ['RATE_LIMITED', 429, 'RATE_LIMITED'],
     ['POLICY_UNAVAILABLE', 503, 'UNAVAILABLE'],
     ['SUBMISSION_UNAVAILABLE', 503, 'UNAVAILABLE'],
+    ['SUBMISSION_PENDING', 503, 'UNAVAILABLE'],
     ['APPLICATION_SAVE_FAILED', 500, 'SUBMISSION_FAILED'],
   ] as const)('maps %s without returning domain or internal details', async (domainCode, status, responseCode) => {
     const deps = dependencies(new ApplicationDomainError(domainCode));
@@ -200,6 +221,35 @@ describe('handleApplicationHttpRequest', () => {
     expect(response.headers.get('Cache-Control')).toBe('no-store');
     expect(await response.text()).not.toContain('applicant@example.test');
   });
+
+  it('fails closed with 503 when the edge IP is unavailable', async () => {
+    const deps = dependencies();
+    const response = await handleApplicationHttpRequest(new Request('https://careers.example.test/api/applications', {
+      method: 'POST', body: multipart({ payload: validEntryInput }),
+    }), env, deps);
+    expect(response.status).toBe(503);
+    expect(deps.createApplication).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when the edge IP contains a Unicode control character', async () => {
+    const deps = dependencies();
+    const response = await handleApplicationHttpRequest(request(multipart({ payload: validEntryInput }), {
+      'CF-Connecting-IP': '203.0.113.8\u0085',
+    }), env, deps);
+
+    expect(response.status).toBe(503);
+    expect(deps.createApplication).not.toHaveBeenCalled();
+  });
+
+  it('rejects duplicate, extra, and overlong bounded multipart fields', async () => {
+    const duplicate = multipart({ payload: validEntryInput });
+    duplicate.append('payload', JSON.stringify(validEntryInput));
+    const extra = multipart({ payload: validEntryInput });
+    extra.set('debug', 'true');
+    const token = multipart({ payload: validEntryInput, token: 'x'.repeat(2049) });
+    const responses = await Promise.all([duplicate, extra, token].map((form) => handleApplicationHttpRequest(request(form), env, dependencies())));
+    expect(responses.map((response) => response.status)).toEqual([400, 400, 400]);
+  });
 });
 
 describe('applicationTurnstileMiddleware', () => {
@@ -211,6 +261,7 @@ describe('applicationTurnstileMiddleware', () => {
         success: true,
         challenge_ts: '2026-09-02T08:00:00.000Z',
         hostname: 'careers.example.test',
+        action: 'application-submit',
       });
     }));
     const deps = dependencies();
@@ -230,7 +281,7 @@ describe('applicationTurnstileMiddleware', () => {
       passThroughOnException: vi.fn(),
     };
 
-    const response = await applicationTurnstileMiddleware(context);
+    const response = await createApplicationTurnstileMiddleware(deps)(context);
 
     expect(response.status).toBe(201);
     expect(context.next).toHaveBeenCalledOnce();
@@ -259,7 +310,7 @@ describe('applicationTurnstileMiddleware', () => {
       passThroughOnException: vi.fn(),
     };
 
-    const response = await applicationTurnstileMiddleware(context);
+    const response = await createApplicationTurnstileMiddleware(dependencies())(context);
 
     expect(response.status).toBe(400);
     expect(response.headers.get('Cache-Control')).toBe('no-store');
@@ -268,5 +319,40 @@ describe('applicationTurnstileMiddleware', () => {
     const turnstileBody = fetcher.mock.calls[0][1]?.body as FormData;
     expect(turnstileBody.get('secret')).toBe(env.TURNSTILE_SECRET_KEY);
     expect(turnstileBody.get('response')).toBe('test-turnstile-response');
+  });
+
+  it('applies an IP-only pre-verification quota before Siteverify', async () => {
+    const order: string[] = [];
+    const deps = dependencies();
+    deps.repository.consumeSubmissionQuota = vi.fn(async (_hash, maximum, seconds) => {
+      order.push(`quota:${maximum}:${seconds}`);
+      return false;
+    });
+    const fetcher = vi.fn(async () => { order.push('siteverify'); return Response.json({ success: true }); });
+    vi.stubGlobal('fetch', fetcher);
+    const middleware = createApplicationTurnstileMiddleware(deps);
+    const incoming = request();
+    const response = await middleware({ request: incoming, env, data: {}, params: {}, functionPath: '/api/applications', next: vi.fn(), waitUntil: vi.fn(), passThroughOnException: vi.fn() });
+
+    expect(response.status).toBe(429);
+    expect(order).toEqual(['quota:20:600']);
+    expect(fetcher).not.toHaveBeenCalled();
+    expect(incoming.bodyUsed).toBe(false);
+  });
+
+  it.each([
+    [{ success: true, hostname: 'wrong.example.test', action: 'application-submit' }, 400],
+    [{ success: true, hostname: 'careers.example.test', action: 'wrong-action' }, 400],
+    [{ success: false, 'error-codes': ['invalid-input-secret'] }, 503],
+    [{ success: false, 'error-codes': ['internal-error'] }, 503],
+    [{ success: false, 'error-codes': ['timeout-or-duplicate'] }, 400],
+  ])('checks Turnstile origin/action and classifies plugin errors', async (turnstile, status) => {
+    vi.stubGlobal('fetch', vi.fn(async () => Response.json(turnstile)));
+    const deps = dependencies();
+    const middleware = createApplicationTurnstileMiddleware(deps);
+    const context = { request: request(), env, data: {}, params: {}, functionPath: '/api/applications', next: vi.fn(async () => new Response('ok')), waitUntil: vi.fn(), passThroughOnException: vi.fn() };
+    const response = await middleware(context);
+    expect(response.status).toBe(status);
+    expect(context.next).not.toHaveBeenCalled();
   });
 });

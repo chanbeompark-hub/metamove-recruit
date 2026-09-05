@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 import { DRAFT_KEY, DRAFT_WARNING } from '../features/application/store';
+import { validPdfBytes } from '../test/fixtures/documents';
 import { ApplicationPage } from './ApplicationPage';
 
 const longAnswer = '지원자의 성장과 회원의 변화를 함께 만드는 트레이너가 되고 싶습니다. '.repeat(4);
@@ -22,7 +23,7 @@ function renderPage() {
 }
 
 function validPdfFile(name = 'resume.pdf') {
-  return new File(['%PDF-1.7'], name, { type: 'application/pdf' });
+  return new File([validPdfBytes()], name, { type: 'application/pdf' });
 }
 
 async function completeBasicInfo(user: ReturnType<typeof userEvent.setup>, level: 'entry' | 'experienced' = 'entry') {

@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { validEntryInput } from '../../test/fixtures/application';
+import { validPdfBytes } from '../../test/fixtures/documents';
 import { createApplication } from './createApplication';
+import { ApplicationRepositoryError } from './repository';
 import type {
   ApplicationPolicy,
   ApplicationRepository,
@@ -8,7 +10,7 @@ import type {
   PersistedApplication,
 } from './types';
 
-const PDF_HEADER = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x37]);
+const PDF_HEADER = validPdfBytes();
 const policy: ApplicationPolicy = {
   privacyConsentVersion: 'test-approved-v1',
   privacyRetentionDays: 30,
@@ -17,6 +19,7 @@ const policy: ApplicationPolicy = {
 function command(overrides: Partial<CreateApplicationCommand> = {}): CreateApplicationCommand {
   return {
     input: validEntryInput,
+    idempotencyKey: '10000000-0000-4000-8000-000000000001',
     actorHash: 'a'.repeat(64),
     resume: new File([PDF_HEADER], '..\\private\\resume.pdf', { type: 'application/pdf' }),
     portfolio: null,
@@ -34,12 +37,15 @@ function repository(overrides: Partial<ApplicationRepository> = {}) {
       uploadedPaths.push(path);
       return path;
     }),
+    findApplicationByIdempotencyKey: vi.fn(async () => null),
     insertApplicationGraph: vi.fn(async (graph) => {
       storedGraphs.push(graph);
+      return { status: 'inserted', receiptCode: graph.application.receiptCode } as const;
     }),
     deleteFile: vi.fn(async (path) => {
       deletedPaths.push(path);
     }),
+    enqueueFileReconciliation: vi.fn(async () => undefined),
     ...overrides,
   };
   return { fake, storedGraphs, uploadedPaths, deletedPaths };
@@ -81,6 +87,21 @@ describe('createApplication', () => {
     expect(fake.insertApplicationGraph).not.toHaveBeenCalled();
   });
 
+  it('replays a committed idempotency key without consuming another submission quota slot', async () => {
+    const receiptCode = 'MMG-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+    const { fake } = repository({
+      consumeSubmissionQuota: vi.fn(async () => false),
+      findApplicationByIdempotencyKey: vi.fn(async () => ({
+        applicationId: '20000000-0000-4000-8000-000000000002',
+        receiptCode,
+      })),
+    });
+
+    await expect(createApplication(command(), fake, policy)).resolves.toEqual({ receiptCode });
+    expect(fake.consumeSubmissionQuota).not.toHaveBeenCalled();
+    expect(fake.uploadFile).not.toHaveBeenCalled();
+  });
+
   it('keeps production unavailable when privacy policy values are absent or invalid', async () => {
     const { fake } = repository();
 
@@ -95,10 +116,10 @@ describe('createApplication', () => {
     expect(fake.consumeSubmissionQuota).not.toHaveBeenCalled();
   });
 
-  it('deletes both requested random paths when graph insertion fails', async () => {
+  it('deletes both successfully uploaded random paths when graph insertion definitively fails', async () => {
     const { fake, uploadedPaths, deletedPaths } = repository({
       insertApplicationGraph: vi.fn(async () => {
-        throw new Error('database detail');
+        throw new ApplicationRepositoryError('GRAPH_REJECTED');
       }),
     });
     const portfolio = new File([PDF_HEADER], '../../portfolio.pdf', { type: 'application/pdf' });
@@ -118,11 +139,11 @@ describe('createApplication', () => {
     }
   });
 
-  it('attempts every cleanup even when one delete fails', async () => {
+  it('enqueues durable reconciliation and reports pending when cleanup fails', async () => {
     const deletedPaths: string[] = [];
     const { fake } = repository({
       insertApplicationGraph: vi.fn(async () => {
-        throw new Error('database detail');
+        throw new ApplicationRepositoryError('GRAPH_REJECTED');
       }),
       deleteFile: vi.fn(async (path) => {
         deletedPaths.push(path);
@@ -131,10 +152,29 @@ describe('createApplication', () => {
     });
     const portfolio = new File([PDF_HEADER], 'portfolio.pdf', { type: 'application/pdf' });
 
-    await expect(createApplication(command({ portfolio }), fake, policy)).rejects.toThrow(
-      'APPLICATION_SAVE_FAILED',
-    );
+    await expect(createApplication(command({ portfolio }), fake, policy)).rejects.toThrow('SUBMISSION_PENDING');
     expect(deletedPaths).toHaveLength(2);
+    expect(fake.enqueueFileReconciliation).toHaveBeenCalledWith(expect.objectContaining({
+      idempotencyKey: command().idempotencyKey,
+      paths: expect.any(Array),
+    }));
+  });
+
+  it('does not hide a reconciliation enqueue failure after storage cleanup fails', async () => {
+    const enqueueError = new ApplicationRepositoryError('RECONCILIATION_ENQUEUE_FAILED');
+    const { fake } = repository({
+      insertApplicationGraph: vi.fn(async () => {
+        throw new ApplicationRepositoryError('GRAPH_REJECTED');
+      }),
+      deleteFile: vi.fn(async () => {
+        throw new ApplicationRepositoryError('FILE_DELETE_FAILED');
+      }),
+      enqueueFileReconciliation: vi.fn(async () => {
+        throw enqueueError;
+      }),
+    });
+
+    await expect(createApplication(command(), fake, policy)).rejects.toBe(enqueueError);
   });
 
   it('deletes the requested resume path when a later portfolio upload fails', async () => {
@@ -155,7 +195,8 @@ describe('createApplication', () => {
     await expect(createApplication(command({ portfolio }), fake, policy)).rejects.toThrow(
       'APPLICATION_SAVE_FAILED',
     );
-    expect(deletedPaths).toHaveLength(2);
+    expect(deletedPaths).toHaveLength(1);
+    expect(deletedPaths[0]).toMatch(/\.pdf$/);
   });
 
   it('persists one canonical graph and returns only a random receipt', async () => {
@@ -168,6 +209,7 @@ describe('createApplication', () => {
     expect(storedGraphs).toHaveLength(1);
     expect(storedGraphs[0]).toMatchObject({
       application: {
+        idempotencyKey: command().idempotencyKey,
         name: validEntryInput.name,
         email: validEntryInput.email,
         receiptCode: result.receiptCode,
@@ -186,6 +228,7 @@ describe('createApplication', () => {
           originalFilename: 'resume.pdf',
           mimeType: 'application/pdf',
           sizeBytes: PDF_HEADER.byteLength,
+          securityStatus: 'quarantined',
         },
       ],
     });
@@ -213,5 +256,80 @@ describe('createApplication', () => {
     });
 
     await expect(createApplication(command(), fake, policy)).rejects.toThrow('SUBMISSION_UNAVAILABLE');
+  });
+
+  it('returns a committed receipt after an ambiguous graph response without deleting uploaded files', async () => {
+    const committedReceipt = 'MMG-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';
+    let applicationId = '';
+    const { fake } = repository({
+      insertApplicationGraph: vi.fn(async (graph) => {
+        applicationId = graph.application.id;
+        throw new ApplicationRepositoryError('GRAPH_AMBIGUOUS');
+      }),
+      findApplicationByIdempotencyKey: vi.fn()
+        .mockResolvedValueOnce(null)
+        .mockImplementationOnce(async () => ({ applicationId, receiptCode: committedReceipt })),
+    });
+
+    await expect(createApplication(command(), fake, policy)).resolves.toEqual({ receiptCode: committedReceipt });
+    expect(fake.deleteFile).not.toHaveBeenCalled();
+  });
+
+  it('cleans confirmed uploads when an ambiguous graph lookup proves a different application already owns the idempotency key', async () => {
+    const committedReceipt = 'MMG-CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC';
+    const { fake } = repository({
+      insertApplicationGraph: vi.fn(async () => { throw new ApplicationRepositoryError('GRAPH_AMBIGUOUS'); }),
+      findApplicationByIdempotencyKey: vi.fn()
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce({
+          applicationId: '20000000-0000-4000-8000-000000000002',
+          receiptCode: committedReceipt,
+        }),
+    });
+
+    await expect(createApplication(command(), fake, policy)).resolves.toEqual({ receiptCode: committedReceipt });
+    expect(fake.deleteFile).toHaveBeenCalledOnce();
+  });
+
+  it('keeps files and enqueues reconciliation when graph status is unknowable', async () => {
+    const { fake } = repository({
+      insertApplicationGraph: vi.fn(async () => { throw new ApplicationRepositoryError('GRAPH_AMBIGUOUS'); }),
+      findApplicationByIdempotencyKey: vi.fn()
+        .mockResolvedValueOnce(null)
+        .mockRejectedValueOnce(new ApplicationRepositoryError('LOOKUP_UNAVAILABLE')),
+    });
+
+    await expect(createApplication(command(), fake, policy)).rejects.toThrow('SUBMISSION_PENDING');
+    expect(fake.deleteFile).not.toHaveBeenCalled();
+    expect(fake.enqueueFileReconciliation).toHaveBeenCalledOnce();
+  });
+
+  it('retries only receipt collisions without re-uploading files', async () => {
+    const { fake } = repository({
+      insertApplicationGraph: vi.fn()
+        .mockRejectedValueOnce(new ApplicationRepositoryError('RECEIPT_COLLISION'))
+        .mockResolvedValueOnce({ status: 'inserted', receiptCode: 'MMG-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB' }),
+    });
+
+    await createApplication(command(), fake, policy);
+
+    expect(fake.uploadFile).toHaveBeenCalledOnce();
+    expect(fake.insertApplicationGraph).toHaveBeenCalledTimes(2);
+    const first = vi.mocked(fake.insertApplicationGraph).mock.calls[0][0];
+    const second = vi.mocked(fake.insertApplicationGraph).mock.calls[1][0];
+    expect(first.application.receiptCode).not.toBe(second.application.receiptCode);
+  });
+
+  it('stops after three receipt collisions and cleans up the confirmed upload', async () => {
+    const { fake } = repository({
+      insertApplicationGraph: vi.fn(async () => {
+        throw new ApplicationRepositoryError('RECEIPT_COLLISION');
+      }),
+    });
+
+    await expect(createApplication(command(), fake, policy)).rejects.toThrow('APPLICATION_SAVE_FAILED');
+    expect(fake.insertApplicationGraph).toHaveBeenCalledTimes(3);
+    expect(fake.uploadFile).toHaveBeenCalledOnce();
+    expect(fake.deleteFile).toHaveBeenCalledOnce();
   });
 });

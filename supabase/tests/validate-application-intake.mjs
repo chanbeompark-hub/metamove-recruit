@@ -4,6 +4,8 @@ import { fileURLToPath, URL } from 'node:url';
 
 const migrationUrl = new URL('../migrations/0001_application_intake.sql', import.meta.url);
 const graphMigrationUrl = new URL('../migrations/0002_application_graph_rpc.sql', import.meta.url);
+const hardeningMigrationUrl = new URL('../migrations/0003_application_submission_hardening.sql', import.meta.url);
+const pgTapUrl = new URL('./application_intake.sql', import.meta.url);
 const configUrl = new URL('../config.toml', import.meta.url);
 
 function stripComments(sql) {
@@ -163,6 +165,7 @@ const publicTables = [
   'application_reviews',
   'application_status_history',
   'submission_rate_limits',
+  'application_file_reconciliations',
 ];
 const cascadeTables = [
   'application_answers',
@@ -173,10 +176,14 @@ const cascadeTables = [
 
 let migration;
 let graphMigration;
+let hardeningMigration;
+let pgTap;
 let config;
 try {
   migration = readFileSync(migrationUrl, 'utf8');
   graphMigration = readFileSync(graphMigrationUrl, 'utf8');
+  hardeningMigration = readFileSync(hardeningMigrationUrl, 'utf8');
+  pgTap = readFileSync(pgTapUrl, 'utf8');
   config = readFileSync(configUrl, 'utf8');
 } catch (error) {
   globalThis.console.error(`STATIC FAIL: ${error.message}`);
@@ -184,8 +191,13 @@ try {
   process.exit(1);
 }
 
-const sql = normalize(`${migration}\n${graphMigration}`);
+const sql = normalize(`${migration}\n${graphMigration}\n${hardeningMigration}`);
+const pgTapSql = normalize(pgTap);
 const failures = [];
+
+if (hardeningMigration.includes('\\\\.')) {
+  failures.push('application storage-path validation over-escapes the file-extension separator');
+}
 
 requireMatch(
   failures,
@@ -335,6 +347,20 @@ requireMatch(
   /grant execute on function public\.insert_application_graph\(jsonb\) to service_role/,
   'application graph RPC is not granted only to service_role',
 );
+requireMatch(failures, sql, /applications_idempotency_key_key unique \(idempotency_key\)/, 'application idempotency unique constraint is missing');
+requireMatch(failures, sql, /security_status text not null default 'quarantined'.*application_files_scan_state/s, 'quarantine and scan state metadata is missing');
+requireMatch(failures, sql, /jsonb_typeof\(p_graph\) is distinct from 'object'.*jsonb_object_keys\(p_graph\).*jsonb_typeof\(application_value\) is distinct from 'object'/s, 'graph RPC is missing explicit JSON type and key validation');
+requireMatch(failures, sql, /answer_key' = 'motivation'.*answer_key' = 'strengths'.*answer_key' = 'goals'.*answer_key' = 'career_history'/s, 'graph RPC is missing exact canonical answer counts');
+requireMatch(failures, sql, /security_status' is distinct from 'quarantined'/, 'graph RPC is missing quarantine validation');
+requireMatch(failures, sql, /file_kind' = 'resume'.*file_kind' = 'portfolio'/s, 'graph RPC is missing exact file-kind counts');
+requireMatch(failures, sql, /pg_advisory_xact_lock.*idempotency_value.*return query select existing_receipt, false/s, 'graph RPC does not serialize and safely replay idempotency keys');
+requireMatch(failures, sql, /create or replace function public\.find_application_by_idempotency\(.*security definer.*revoke all on function public\.find_application_by_idempotency\(uuid\) from public, anon, authenticated.*grant execute on function public\.find_application_by_idempotency\(uuid\) to service_role/s, 'idempotency lookup is not service-role-only');
+requireMatch(failures, sql, /create or replace function public\.find_application_by_idempotency\(p_idempotency_key uuid\)\s*returns table\s*\(\s*application_id uuid,\s*receipt_code text\s*\)/s, 'idempotency lookup does not return the authoritative application identity and receipt');
+requireMatch(failures, sql, /create or replace function public\.enqueue_application_file_reconciliation\(.*security definer.*application_file_reconciliations.*revoke all on function public\.enqueue_application_file_reconciliation.*from public, anon, authenticated/s, 'durable reconciliation RPC is missing or exposed');
+requireMatch(failures, sql, /create index submission_rate_limits_attempted_at_idx.*attempted_at/s, 'global attempted_at retention index is missing');
+requireMatch(failures, sql, /create or replace function public\.purge_submission_rate_limits\(.*limit p_limit.*for update skip locked.*grant execute on function public\.purge_submission_rate_limits.*to service_role/s, 'bounded service-only rate retention purge is missing');
+requireMatch(failures, sql, /pg_available_extensions.*pg_cron.*purge-application-submission-rate-limits/s, 'conditional pg_cron retention schedule is missing');
+requireMatch(failures, sql, /revoke all privileges on table public\.application_file_reconciliations from public, anon, authenticated/, 'reconciliation queue privileges are exposed');
 requireMatch(
   failures,
   sql,
@@ -403,6 +429,49 @@ requireMatch(
   'local API config must not auto-grant new public objects',
 );
 
+requireMatch(
+  failures,
+  pgTapSql,
+  /application_file_reconciliations'.*every public application table has a uuid primary key.*application_file_reconciliations'.*rls is enabled on every public application table/s,
+  'pgTAP does not include reconciliation queue primary-key and RLS coverage',
+);
+requireMatch(
+  failures,
+  pgTapSql,
+  /has_function_privilege\('service_role', 'public\.find_application_by_idempotency\(uuid\)'.*has_function_privilege\('service_role', 'public\.enqueue_application_file_reconciliation\(uuid,uuid,text\[\],text\)'.*has_function_privilege\('service_role', 'public\.purge_submission_rate_limits\(timestamptz,integer\)'/s,
+  'pgTAP does not verify service-only hardening RPC privileges',
+);
+requireMatch(
+  failures,
+  pgTapSql,
+  /receipt_code = 'mmg-00000000000000000000000000000001'\), 1::bigint, 'atomic graph rpc inserts one application'.*where application_id = '30000000-0000-4000-8000-000000000001'.*3::bigint, 'atomic graph rpc inserts its answers'/s,
+  'pgTAP graph success expectations do not assert one parent and all three essays',
+);
+requireMatch(
+  failures,
+  pgTapSql,
+  /same idempotency key replays without another insert.*graph rejects a missing top-level key.*graph rejects a wrong json type.*graph rejects empty and incomplete essays.*graph rejects a missing resume.*graph rejects a path outside the application namespace/s,
+  'pgTAP is missing graph idempotency, exact-shape, cardinality, or application-path negatives',
+);
+requireMatch(
+  failures,
+  pgTapSql,
+  /idempotency lookup returns the authoritative application identity and receipt/s,
+  'pgTAP does not prove the lookup returns both application identity and receipt',
+);
+requireMatch(
+  failures,
+  pgTapSql,
+  /forced test file failure.*file insert failure rolls back the application parent.*file insert failure rolls back application answers/s,
+  'pgTAP is missing a post-parent graph failure rollback assertion',
+);
+requireMatch(
+  failures,
+  pgTapSql,
+  /global rate-limit purge deletes at most the requested batch size.*bounded purge leaves the next old row for a later batch.*reconciliation rpc records one durable pending cleanup item/s,
+  'pgTAP is missing bounded global purge or durable reconciliation behavior',
+);
+
 if (failures.length > 0) {
   globalThis.console.error('STATIC FAIL: application intake migration is structurally incomplete:');
   for (const failure of failures) globalThis.console.error(`- ${failure}`);
@@ -411,5 +480,5 @@ if (failures.length > 0) {
   process.exit(1);
 }
 
-globalThis.console.log(`STATIC PASS: ${publicTables.length} tables, RLS/grants, admin guard, private storage, atomic quota, and atomic graph RPC structure detected.`);
+globalThis.console.log(`STATIC PASS: ${publicTables.length} tables, RLS/grants, admin guard, private storage, atomic quota/graph RPCs, and hardening pgTAP definitions detected.`);
 globalThis.console.log('No PostgreSQL execution was performed. Live reset, pgTAP, and database lint remain required.');

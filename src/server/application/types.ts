@@ -7,6 +7,7 @@ export type ApplicationPolicy = {
 
 export type CreateApplicationCommand = {
   input: unknown;
+  idempotencyKey: string;
   actorHash: string;
   resume: File | null;
   portfolio?: File | null;
@@ -14,6 +15,7 @@ export type CreateApplicationCommand = {
 
 export type PersistedApplicationRecord = {
   id: string;
+  idempotencyKey: string;
   receiptCode: string;
   name: string;
   phone: string;
@@ -41,6 +43,7 @@ export type PersistedApplicationFile = {
   mimeType: string;
   sizeBytes: number;
   fileKind: 'resume' | 'portfolio';
+  securityStatus: 'quarantined';
 };
 
 export type PersistedApplication = {
@@ -55,9 +58,22 @@ export interface ApplicationRepository {
     maximum: number,
     windowSeconds: number,
   ): Promise<boolean>;
-  uploadFile(path: string, file: File): Promise<string>;
-  insertApplicationGraph(input: PersistedApplication): Promise<void>;
+  uploadFile(path: string, file: File, canonicalMimeType: string): Promise<string>;
+  findApplicationByIdempotencyKey(idempotencyKey: string): Promise<{
+    applicationId: string;
+    receiptCode: string;
+  } | null>;
+  insertApplicationGraph(input: PersistedApplication): Promise<{
+    status: 'inserted' | 'replayed';
+    receiptCode: string;
+  }>;
   deleteFile(path: string): Promise<void>;
+  enqueueFileReconciliation(input: {
+    applicationId: string;
+    idempotencyKey: string;
+    paths: string[];
+    reason: 'cleanup_failed' | 'graph_status_unknown';
+  }): Promise<void>;
 }
 
 export type ApplicationDomainErrorCode =
@@ -68,6 +84,7 @@ export type ApplicationDomainErrorCode =
   | 'RATE_LIMITED'
   | 'POLICY_UNAVAILABLE'
   | 'SUBMISSION_UNAVAILABLE'
+  | 'SUBMISSION_PENDING'
   | 'APPLICATION_SAVE_FAILED';
 
 export class ApplicationDomainError extends Error {

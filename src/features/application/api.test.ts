@@ -13,12 +13,22 @@ describe('submitApplication', () => {
     const result = await submitApplication(form, fetcher);
 
     expect(result).toEqual({ receiptCode: 'MMG-123' });
+    expect(form.get('submission_key')).toMatch(/^[0-9a-f-]{36}$/);
     expect(fetcher).toHaveBeenCalledWith('/api/applications', {
       method: 'POST',
       body: form,
       cache: 'no-store',
       credentials: 'same-origin',
     });
+  });
+
+  it('keeps one stable idempotency key when the same form is retried', async () => {
+    const form = new FormData();
+    const fetcher = vi.fn(async () => Response.json({ receiptCode: 'MMG-123' }, { status: 201 }));
+    await submitApplication(form, fetcher);
+    const first = form.get('submission_key');
+    await submitApplication(form, fetcher);
+    expect(form.get('submission_key')).toBe(first);
   });
 
   it.each([
