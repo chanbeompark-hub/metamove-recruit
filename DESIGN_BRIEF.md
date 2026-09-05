@@ -13,7 +13,7 @@
 - Immutable identity: 메타무브짐 명칭과 사용자가 제공할 공식 로고, 파란색·흰색 중심의 브랜드 인상, 실제 센터와 대표 2인.
 - Repeatable shapes/materials: 얇은 블루 구조선, 큰 숫자 인덱스, 좌우 비대칭 에디토리얼 그리드, 실제 공간 사진, 4–8px 모서리.
 - Existing inconsistencies to remove: 프로젝트에 기존 UI가 없으므로 둥근 카드 반복, 장식성 그라데이션, 근거 없는 수치, 스톡 피트니스 사진을 새로 도입하지 않는다.
-- Media provenance: 로고, 센터 사진, 대표 사진은 사용자가 소유하거나 사용 권한을 확인한 파일만 사용한다. 현재 파일 자체는 아직 전달되지 않았다.
+- Media provenance: 사용자가 직접 제공하고 사용 가능하다고 확인한 센터·코칭·교육·대표 사진만 사용한다. 외부 스톡 이미지는 추가하지 않는다.
 
 ## Reference evidence
 
@@ -36,8 +36,8 @@
 
 | Reference evidence | Extracted principle | Local component | Motion/state | Mobile translation | Acceptance evidence |
 |---|---|---|---|---|---|
-| Equinox 홈과 Personal Trainer 구간 | 채용 행동 뒤에 교육·성장 근거 제공 | Hero, ValueIndex, GrowthTabs | 가치 01→03 순차 공개 | 세로 스택과 고정 지원 CTA | 테스트 전용 전체 콘텐츠 캡처 `.superpowers/sdd/2026-08-31-metamove-public-site/artifacts/public-fixture-1440.png`, `public-fixture-390.png`; 320/360/390/430/1440px E2E에서 모든 섹션·탭·표·대표 2인·fragment·CTA와 문서 overflow 0 확인 |
-| On 미션·사람·문화 구간 | 실제 미디어로 브랜드 신념 증명 | CenterStory, FounderPair | 사진 마스크와 캡션 순차 공개 | 인물별 세로 교차 배치 | 승인된 센터·대표 미디어가 아직 없어 해당 섹션은 공개 DOM에서 숨김; 캡처에서 빈 제목·대체 사진 없음 확인 |
+| Equinox 홈과 Personal Trainer 구간 | 채용 행동 뒤에 교육·성장 근거 제공 | Hero, ValueIndex, GrowthTabs | 가치 01→03 순차 공개 | 세로 스택과 고정 지원 CTA | 실제 공개 화면 캡처 `.superpowers/sdd/2026-08-31-metamove-public-site/artifacts/public-production-1440.png`, `public-production-390.png`; 320/360/390/430/1440px E2E에서 모든 섹션·탭·대표 2인·fragment·CTA와 문서 overflow 0 확인 |
+| On 미션·사람·문화 구간 | 실제 미디어와 짧은 문단으로 브랜드 신념 증명 | CenterStory, FounderPair, ExpansionVision | 구역 진입 시 구조선→본문→사진 순차 공개 | 문단 폭 축소, 사진은 별도 행으로 전환하고 인물 초점 유지 | 사용자 제공 센터·대표·교육 사진과 대체 텍스트를 공개 DOM에서 확인; 320/360/390/430/1440px에서 크롭과 overflow 검증 |
 | GOV.UK Check answers | 제출 전 요약·수정·확정 | ApplicationReview | 수정 후 리뷰 단계 복귀 | 키·값·수정 링크 세로 배치 | 이번 공개 사이트 범위에서는 `/apply` 이동과 복귀 fragment만 E2E 확인; 단계형 검토 화면은 후속 지원서 계획 범위 |
 | Magic UI Number Ticker | 숫자에만 목적 있는 짧은 전환 | ValueIndex | 0→인덱스, 400–650ms | 정적 숫자 또는 단축 전환 | Playwright가 정상 모션의 CSS Animation을 시작·종료 시점으로 직접 이동해 0→최종 변환을 확인하고, reduced-motion에서는 접근성 DOM의 `01/02/03` 최종 문자열과 `animation-name: none`을 확인 |
 
@@ -54,10 +54,12 @@
 | 증거 공개 | ValueIndex 진입 | 01·02·03 숫자와 설명 | 숫자 전환 + 설명 40px 이동 | 400–650ms, ease-out | 세 가지 채용 가치를 빠르게 이해 | 숫자와 설명 정적 표시 |
 | 두 전문성 연결 | FounderPair 진입 | 대표 사진, 역할선, 설명 | 좌우 사진 → 중앙 연결선 | 450ms, ease-out | 상호 보완적인 대표 역량 설명 | 연결선과 정보 즉시 표시 |
 | 지원 피드백 | 버튼·입력 상호작용 | 버튼, 필드, 단계 표시 | 색·테두리·위치 1–2px 변화 | 120–180ms | 행동과 현재 상태 확인 | 위치 이동 없이 색·테두리만 변경 |
+| 읽기 흐름 연결 | 각 본문 구역 진입 | 눈금선, 제목, 문단, 사진 | 18px 이동·클립 해제·사진 1.02→1 | 420–680ms, cubic-bezier(0.2, 0.72, 0.2, 1) | 긴 페이지에서 현재 읽을 구역을 자연스럽게 인식 | 모든 요소 최종 상태 즉시 표시 |
+| 경로 전환 | 성장 탭 선택 | 선택 막대, 본문, 사진 | 강조 막대 이동·콘텐츠 짧은 교차 전환 | 180–260ms, ease-out | 신입·경력 경로의 차이를 빠르게 비교 | 선택 상태만 즉시 변경 |
 
 ## Tokens
 
-- Font: Pretendard 400/600/700/800을 로컬 또는 신뢰 가능한 정적 자산으로 제공하고, `Malgun Gothic`, system-ui를 대체 글꼴로 둔다. Gmarket Sans는 친근하고 기하학적인 인상이 강해 이번 전문적·편집형 방향에는 사용하지 않는다.
+- Font: Pretendard Variable을 프로젝트 정적 자산으로 제공하고, `Malgun Gothic`, system-ui를 대체 글꼴로 둔다. 한국어 본문은 400/500, 탐색과 소제목은 600/700, 대형 제목은 800을 사용한다. Gmarket Sans는 넓은 글자폭과 기하학적 인상이 긴 채용 문단의 읽기 효율을 낮춰 사용하지 않는다.
 - Text colors: `#09264D` 제목, `#52677F` 본문, `#FFFFFF` 역상 텍스트.
 - Surface colors: `#FFFFFF` 기본, `#F4F7FB` 보조, `#EAF3FF` 강조 배경.
 - Accent and semantic colors: `#1268D8` 주요 행동, `#58A6FF` 신호, 성공·경고·오류는 텍스트와 아이콘을 함께 사용한다.
@@ -100,16 +102,16 @@
 - Viewports: 320 / 360 / 390 / 430 / desktop.
 - Desktop media behavior: 실제 센터 사진의 초점 영역을 유지하며 텍스트 안전 영역과 2열로 배치한다.
 - Mobile media behavior: Hero와 센터는 승인된 모바일 전용 소스 또는 데스크톱·모바일 초점 메타데이터를 사용해 사진과 텍스트를 순서대로 쌓고, 대표 사진은 인물 얼굴이 잘리지 않는 별도 모바일 크롭을 사용한다.
-- Scroll reveal grammar: 구조선 → 인덱스 → 증거의 한 가지 순서를 반복한다.
+- Scroll reveal grammar: 각 구역에서 구조선 → 제목 → 짧게 나눈 문단 → 사진 순서만 반복하며, 전체 구역을 같은 단순 페이드로 처리하지 않는다.
 - Reduced-motion final state: 모든 정보가 즉시 최종 위치와 값으로 표시되고 자동 스크롤·카운트업을 사용하지 않는다.
 - Text-clipping viewports: 320/360/390/430px에서 한국어 헤드라인, 상태표시, 버튼 라벨의 잘림과 가로 스크롤을 허용하지 않는다.
 
 ## Verification captures
 
-- 공개 구조 전체 화면: 프로덕션에 포함되지 않는 전체 콘텐츠 픽스처로 `.superpowers/sdd/2026-08-31-metamove-public-site/artifacts/public-fixture-1440.png`, `.superpowers/sdd/2026-08-31-metamove-public-site/artifacts/public-fixture-390.png` 확인.
-- 320/360/390/430/1440px: `e2e/public-site.spec.ts`에서 모든 공개 섹션, 성장 탭, 근무 규정 표, 대표 2인, fragment, CTA, 반응형 미디어 source/초점, 문서 가로 overflow, 모바일 footer 비겹침, safe-area 예약 공간 확인.
+- 실제 공개 화면 전체: `.superpowers/sdd/2026-08-31-metamove-public-site/artifacts/public-production-1440.png`, `.superpowers/sdd/2026-08-31-metamove-public-site/artifacts/public-production-390.png`에서 Pretendard, 다섯 개의 짧은 센터 문단, 이미지 크롭, 구역 간 여백을 확인.
+- 320/360/390/430/1440px: `e2e/public-site.spec.ts`에서 모든 공개 섹션, 성장 탭, 대표 2인, fragment, CTA, 반응형 미디어 source/초점, 문서 가로 overflow, 모바일 footer 비겹침, safe-area 예약 공간 확인.
 - 키보드·경로: skip-link 즉시 노출과 2px focus outline, 렌더된 `/#...` fragment 대상, `/apply` 이동 확인.
-- normal/reduced-motion: EvidenceRail의 접근성 DOM에는 최종 `01/02/03`을 유지하고, 정상 모션은 Web Animations API로 0→최종 숫자 위치를 결정적으로 확인하며 reduced-motion은 최종 문자열을 즉시 표시하고 애니메이션 레이어를 숨김.
+- normal/reduced-motion: EvidenceRail의 접근성 DOM에는 최종 `01/02/03`을 유지하고, 정상 모션은 Web Animations API로 0→최종 숫자 위치를 결정적으로 확인한다. 본문 구역은 IntersectionObserver 진입 시 최종 클래스로 전환하며 reduced-motion에서는 즉시 최종 상태를 표시한다.
 - 지원서: 빈 상태, 정상 작성, 오류, 제출 전 검토, 제출 완료.
 - 관리자: 신규 지원자 목록, 상세 검토, 상태 변경, 접근 거부.
-- 시그니처 모션: 첫 화면 조립과 EvidenceRail 진행을 5–10초로 기록.
+- 시그니처 모션: Playwright trace와 정상·reduced-motion 상태 검증으로 첫 화면 조립, EvidenceRail 진행, 본문 구역 진입의 시작·최종 상태를 확인.

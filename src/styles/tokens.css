@@ -1,3 +1,11 @@
+@font-face {
+  font-family: "Pretendard Variable";
+  font-style: normal;
+  font-weight: 45 920;
+  font-display: swap;
+  src: url("/fonts/PretendardVariable.woff2") format("woff2-variations");
+}
+
 :root {
   color-scheme: light;
   --color-navy: #09264d;
@@ -7,7 +15,7 @@
   --color-white: #fff;
   --color-body: #52677f;
   --color-line: rgb(82 103 127 / 22%);
-  --font-sans: Pretendard, "Malgun Gothic", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans: "Pretendard Variable", Pretendard, "Malgun Gothic", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   --radius-control: 5px;
   --radius-panel: 8px;
   --focus-outline-width: 2px;

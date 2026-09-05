@@ -232,7 +232,7 @@ for (const width of mobileWidths) {
     await page.goto('/');
 
     const centerParagraphs = page.locator('.center-story__body p');
-    await expect(centerParagraphs).toHaveCount(3);
+    await expect(centerParagraphs).toHaveCount(5);
     for (let index = 0; index < await centerParagraphs.count(); index += 1) {
       await expectTextGeometry(centerParagraphs.nth(index), `${width}px center paragraph ${index + 1}`, true);
     }
@@ -285,16 +285,59 @@ test('draft hiring process keeps its introduction in the left desktop column', a
 
   const intro = page.locator('.hiring-process__intro');
   const steps = page.locator('.hiring-process__steps');
+  await page.locator('.hiring-process').scrollIntoViewIfNeeded();
+  await expect(page.locator('.hiring-process')).toHaveClass(/section-reveal--visible/);
   await expect(intro).toBeVisible();
   await expect(steps).toBeVisible();
   await expect(intro.getByRole('note')).toHaveText('1차 채용안 · 급여·고용형태·근무조건·일정은 확정 후 안내합니다.');
+
+  await expect.poll(async () => {
+    const [currentIntroBox, currentStepsBox] = await Promise.all([intro.boundingBox(), steps.boundingBox()]);
+    if (!currentIntroBox || !currentStepsBox) return Number.POSITIVE_INFINITY;
+    return Math.abs(currentIntroBox.y - currentStepsBox.y);
+  }).toBeLessThanOrEqual(1);
 
   const [introBox, stepsBox] = await Promise.all([intro.boundingBox(), steps.boundingBox()]);
   expect(introBox).not.toBeNull();
   expect(stepsBox).not.toBeNull();
   expect(introBox!.x).toBeLessThan(stepsBox!.x);
-  expect(Math.abs(introBox!.y - stepsBox!.y)).toBeLessThanOrEqual(1);
   await expectNoDocumentOverflow(page);
+});
+
+test('production typography loads Pretendard Variable and keeps long copy comfortably readable', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+  await page.evaluate(() => document.fonts.ready);
+
+  const typography = await page.locator('.center-story__body').evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      fontFamily: style.fontFamily,
+      fontLoaded: document.fonts.check('16px "Pretendard Variable"'),
+      fontSize: Number.parseFloat(style.fontSize),
+      lineHeight: Number.parseFloat(style.lineHeight),
+    };
+  });
+
+  expect(typography.fontFamily).toContain('Pretendard Variable');
+  expect(typography.fontLoaded).toBe(true);
+  expect(typography.fontSize).toBeGreaterThanOrEqual(16);
+  expect(typography.lineHeight / typography.fontSize).toBeGreaterThanOrEqual(1.75);
+});
+
+test('content sections reveal on entry and expose the final state for reduced motion', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto('/');
+
+  const people = page.locator('.founder-pair');
+  await expect(people).toHaveClass(/section-reveal/);
+  await expect(people).not.toHaveClass(/section-reveal--visible/);
+  await people.scrollIntoViewIfNeeded();
+  await expect(people).toHaveClass(/section-reveal--visible/);
+
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.reload();
+  await expect(page.locator('.founder-pair')).toHaveClass(/section-reveal--visible/);
 });
 
 for (const width of testedWidths) {
@@ -635,16 +678,16 @@ test('captures representative desktop and mobile public-page evidence', async ({
   await page.emulateMedia({ reducedMotion: 'reduce' });
 
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto('/__fixtures/public');
+  await page.goto('/');
   await page.screenshot({
-    path: '.superpowers/sdd/2026-08-31-metamove-public-site/artifacts/public-fixture-1440.png',
+    path: '.superpowers/sdd/2026-08-31-metamove-public-site/artifacts/public-production-1440.png',
     fullPage: true,
   });
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.goto('/__fixtures/public');
+  await page.goto('/');
   await page.screenshot({
-    path: '.superpowers/sdd/2026-08-31-metamove-public-site/artifacts/public-fixture-390.png',
+    path: '.superpowers/sdd/2026-08-31-metamove-public-site/artifacts/public-production-390.png',
     fullPage: true,
   });
 });

@@ -182,6 +182,7 @@ describe('getPublishedContent', () => {
       title: '상동에서 PT를 제대로 배우는 공간',
       paragraphs: expect.arrayContaining([expect.stringContaining('상동역에서 도보 3~4분')]),
     });
+    expect(result.center?.paragraphs).toHaveLength(5);
     expect(result.hero).toMatchObject({
       imageSrc: '/media/metamove-hero-desktop.jpg',
       mobileImageSrc: '/media/metamove-hero-mobile.jpg',

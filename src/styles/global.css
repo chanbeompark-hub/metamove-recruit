@@ -15,7 +15,10 @@ body {
   background: var(--color-white);
   color: var(--color-body);
   font-family: var(--font-sans);
-  line-height: 1.6;
+  font-weight: 400;
+  line-height: 1.7;
+  font-kerning: normal;
+  text-rendering: optimizeLegibility;
   overflow-wrap: break-word;
 }
 
@@ -118,17 +121,34 @@ svg {
 }
 
 .public-nav__section-link {
+  position: relative;
   color: var(--color-body);
   font-size: 0.875rem;
   font-weight: 600;
   text-decoration: none;
-  text-underline-offset: 0.3em;
   transition: color 140ms ease-out;
+}
+
+.public-nav__section-link::after {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0.35rem;
+  height: 2px;
+  background: var(--color-action);
+  content: "";
+  transform: scaleX(0);
+  transform-origin: right center;
+  transition: transform 180ms ease-out;
 }
 
 .public-nav__section-link:hover {
   color: var(--color-action);
-  text-decoration: underline;
+}
+
+.public-nav__section-link:hover::after,
+.public-nav__section-link:focus-visible::after {
+  transform: scaleX(1);
+  transform-origin: left center;
 }
 
 .public-header__apply,

@@ -7,6 +7,7 @@ import { GrowthTabs } from '../components/public/GrowthTabs';
 import { HiringProcess } from '../components/public/HiringProcess';
 import { HeroEvidence } from '../components/public/HeroEvidence';
 import { PositionSummary } from '../components/public/PositionSummary';
+import { SectionRevealController } from '../components/public/SectionRevealController';
 import { getRenderedPublicSectionIds, resolveEvidenceLinks } from '../components/public/publicSections';
 import type { PublishedSiteContent } from '../content/types';
 import '../components/public/public-sections.css';
@@ -34,6 +35,7 @@ export function HomePage({ content }: HomePageProps) {
       )}
       {content.hiringProcess && <HiringProcess process={content.hiringProcess} />}
       {renderedSectionIds.has('positions') && <PositionSummary positions={content.positions} />}
+      <SectionRevealController />
     </main>
   );
 }

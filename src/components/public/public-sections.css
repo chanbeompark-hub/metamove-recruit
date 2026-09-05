@@ -16,7 +16,7 @@
 .center-story h2 {
   margin: 0;
   color: var(--color-navy);
-  font-size: clamp(2.25rem, 5vw, 4.75rem);
+  font-size: clamp(2.125rem, 4.4vw, 4rem);
   font-weight: 800;
   line-height: 1.08;
   word-break: keep-all;
@@ -89,6 +89,7 @@
   border-block-start: 1px solid var(--color-line);
   color: var(--color-navy);
   font-size: clamp(1.125rem, 2vw, 1.5rem);
+  line-height: 1.78;
   white-space: pre-line;
   word-break: keep-all;
 }
@@ -139,10 +140,11 @@
 }
 
 .center-story__body {
-  max-width: 34rem;
+  max-width: 37rem;
   margin: var(--space-8) 0 0;
   color: var(--color-body);
   font-size: 1.0625rem;
+  line-height: 1.82;
   word-break: keep-all;
 }
 
@@ -151,7 +153,64 @@
 }
 
 .center-story__body p + p {
-  margin-block-start: var(--space-5);
+  margin-block-start: 1.125rem;
+}
+
+.founder-profile ul,
+.growth-tabs__panel ul,
+.benefits-rules__benefits p,
+.position-summary ul {
+  line-height: 1.72;
+}
+
+.section-reveal .public-section__eyebrow,
+.section-reveal .public-section__header h2,
+.section-reveal .center-story__body,
+.section-reveal .center-story__media,
+.section-reveal .expansion-vision__body,
+.section-reveal .expansion-vision__media,
+.section-reveal .founder-profile,
+.section-reveal .growth-tabs__interface,
+.section-reveal .benefits-rules__grid,
+.section-reveal .hiring-process__steps,
+.section-reveal .position-summary__list,
+.section-reveal .position-summary__action {
+  opacity: 0;
+  transform: translateY(1.25rem);
+  transition: opacity 560ms cubic-bezier(0.2, 0.72, 0.2, 1), transform 560ms cubic-bezier(0.2, 0.72, 0.2, 1);
+}
+
+.section-reveal .public-section__header h2,
+.section-reveal .center-story__body,
+.section-reveal .expansion-vision__body,
+.section-reveal .growth-tabs__interface,
+.section-reveal .benefits-rules__grid,
+.section-reveal .hiring-process__steps,
+.section-reveal .position-summary__list {
+  transition-delay: 90ms;
+}
+
+.section-reveal .center-story__media,
+.section-reveal .expansion-vision__media,
+.section-reveal .founder-profile:nth-child(2),
+.section-reveal .position-summary__action {
+  transition-delay: 170ms;
+}
+
+.section-reveal--visible .public-section__eyebrow,
+.section-reveal--visible .public-section__header h2,
+.section-reveal--visible .center-story__body,
+.section-reveal--visible .center-story__media,
+.section-reveal--visible .expansion-vision__body,
+.section-reveal--visible .expansion-vision__media,
+.section-reveal--visible .founder-profile,
+.section-reveal--visible .growth-tabs__interface,
+.section-reveal--visible .benefits-rules__grid,
+.section-reveal--visible .hiring-process__steps,
+.section-reveal--visible .position-summary__list,
+.section-reveal--visible .position-summary__action {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .center-story__media {
@@ -301,6 +360,7 @@
 }
 
 .growth-tabs__tab {
+  position: relative;
   display: flex;
   min-height: 4.75rem;
   align-items: center;
@@ -316,6 +376,17 @@
   transition: background-color 160ms ease-out, color 160ms ease-out;
 }
 
+.growth-tabs__tab::after {
+  position: absolute;
+  inset-inline: var(--space-4);
+  inset-block-end: -1px;
+  height: 3px;
+  background: var(--color-action);
+  content: "";
+  transform: scaleX(0);
+  transition: transform 180ms ease-out;
+}
+
 .growth-tabs__tab span {
   color: var(--color-action);
   font-size: 0.75rem;
@@ -327,12 +398,16 @@
 }
 
 .growth-tabs__tab[aria-selected="true"] {
-  background: var(--color-action);
-  color: var(--color-white);
+  background: rgb(18 104 216 / 8%);
+  color: var(--color-navy);
 }
 
 .growth-tabs__tab[aria-selected="true"] span {
-  color: var(--color-white);
+  color: var(--color-action);
+}
+
+.growth-tabs__tab[aria-selected="true"]::after {
+  transform: scaleX(1);
 }
 
 .growth-tabs__panel {
@@ -649,6 +724,7 @@
 
   .public-section__header h2 {
     margin-block-start: var(--space-4);
+    font-size: clamp(2rem, 10.5vw, 3rem);
   }
 
   .center-story__grid {
@@ -674,6 +750,11 @@
     padding: var(--space-8) 0;
     border-block-start: 1px solid var(--color-line);
     border-inline-start: 0;
+  }
+
+  .center-story__body {
+    max-width: 34rem;
+    font-size: 1rem;
   }
 
   .center-story__media {
@@ -768,5 +849,21 @@
     animation: none !important;
     transform: none !important;
     transition: none !important;
+  }
+
+  .section-reveal .public-section__eyebrow,
+  .section-reveal .public-section__header h2,
+  .section-reveal .center-story__body,
+  .section-reveal .center-story__media,
+  .section-reveal .expansion-vision__body,
+  .section-reveal .expansion-vision__media,
+  .section-reveal .founder-profile,
+  .section-reveal .growth-tabs__interface,
+  .section-reveal .benefits-rules__grid,
+  .section-reveal .hiring-process__steps,
+  .section-reveal .position-summary__list,
+  .section-reveal .position-summary__action {
+    opacity: 1;
+    transform: none;
   }
 }
