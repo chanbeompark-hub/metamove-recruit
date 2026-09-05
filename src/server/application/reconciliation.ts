@@ -89,7 +89,7 @@ async function processJob(
       return;
     }
     const committed = await repository.findApplicationByIdempotencyKey(job.idempotencyKey);
-    if (committed) {
+    if (committed?.applicationId === job.applicationId) {
       await repository.completeFileReconciliation(job.id, job.lockToken);
       result.resolved += 1;
       return;

@@ -75,6 +75,26 @@ describe('processApplicationFileReconciliations', () => {
     expect(fake.completeFileReconciliation).toHaveBeenCalledWith(jobId, lockToken);
   });
 
+  it('cleans old unreferenced paths when the idempotency key belongs to a different application while retaining a live referenced path', async () => {
+    const referencedPath = `applications/${applicationId}/50000000-0000-4000-8000-000000000001.pdf`;
+    const fake = repository({
+      claimFileReconciliations: vi.fn(async () => [reconciliationJob({ paths: [storagePath, referencedPath] })]),
+      findApplicationByIdempotencyKey: vi.fn(async () => ({
+        applicationId: '10000000-0000-4000-8000-000000000002',
+        receiptCode: 'MMG-BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB',
+      })),
+      isApplicationFilePathReferenced: vi.fn(async (_applicationId, _idempotencyKey, path) => path === referencedPath),
+    });
+
+    await expect(processApplicationFileReconciliations(fake, { now })).resolves.toEqual({ claimed: 1, resolved: 1, deferred: 0, retried: 0, dead: 0 });
+    expect(fake.isApplicationFilePathReferenced).toHaveBeenCalledWith(applicationId, idempotencyKey, storagePath);
+    expect(fake.isApplicationFilePathReferenced).toHaveBeenCalledWith(applicationId, idempotencyKey, referencedPath);
+    expect(fake.deleteFile).toHaveBeenCalledTimes(1);
+    expect(fake.deleteFile).toHaveBeenCalledWith(storagePath);
+    expect(fake.deleteFile).not.toHaveBeenCalledWith(referencedPath);
+    expect(fake.completeFileReconciliation).toHaveBeenCalledWith(jobId, lockToken);
+  });
+
   it('schedules bounded retries and marks a repeatedly failing job dead with a non-PII alert', async () => {
     const alert = vi.spyOn(globalThis.console, 'error').mockImplementation(() => undefined);
     const fake = repository({

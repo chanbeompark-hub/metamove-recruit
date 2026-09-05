@@ -26,9 +26,9 @@ npx wrangler deploy --config wrangler.reconciliation.toml
 
 ## Worker behavior and operational response
 
-`graph_status_unknown` jobs are held for a one-minute grace period, then re-check the graph idempotency key. If it committed, the job resolves and retains every upload. Before removing an otherwise unreferenced object, the worker queries application-file metadata; a referenced path is retained. Transient failures use a bounded exponential delay and become `dead` after five claimed attempts.
+`graph_status_unknown` jobs are held for a one-minute grace period, then re-check the graph idempotency key. Only a committed graph with the queued job's same application ID resolves and retains every upload. A different application ID falls through to the per-path metadata guard, so only an old unreferenced object is removed and every referenced path is retained. Transient failures use a bounded exponential delay and become `dead` after five claimed attempts.
 
-Only aggregate operational events are emitted: `application_reconciliation_enqueue_failed`, `application_reconciliation_transition_failed`, and `application_reconciliation_dead`, each with a code and count. Treat a dead-letter event as an operator action: inspect the protected service-role queue directly, correct the dependency failure, and deliberately requeue or resolve it. Do not paste raw application data, object paths, email addresses, idempotency keys, or secrets into logs or tickets.
+Only aggregate operational events are emitted: `application_reconciliation_enqueue_failed`, `application_reconciliation_transition_failed`, and `application_reconciliation_dead`, each with a code and count. The Cron hook also rejects its background task for a network failure or non-2xx endpoint response and emits only `application_reconciliation_cron_failed` with a code and HTTP status (`0` for network failures). Treat a dead-letter event as an operator action: inspect the protected service-role queue directly, correct the dependency failure, and deliberately requeue or resolve it. Do not paste raw application data, object paths, email addresses, idempotency keys, endpoint URLs, response bodies, or secrets into logs or tickets.
 
 ## Required live deployment checks
 
