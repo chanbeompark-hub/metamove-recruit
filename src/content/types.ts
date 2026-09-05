@@ -14,18 +14,16 @@ export type HeroContent = ResponsiveMedia & {
   supportingCopy?: string;
 };
 
-export type Representative = {
+export type Representative = ResponsiveMedia & {
   id: string;
   name: string;
   role: string;
   career: string[];
   expertise: string[];
-  imageSrc?: string;
-  imageAlt?: string;
   published: boolean;
 };
 
-export type Benefit = {
+export type Benefit = ResponsiveMedia & {
   id: string;
   title: string;
   description: string;
@@ -49,12 +47,12 @@ export type Position = {
   published: boolean;
 };
 
-export type ExpansionVision = PublishableSection<{
+export type ExpansionVision = PublishableSection<ResponsiveMedia & {
   title: string;
   body: string;
 }>;
 
-export type GrowthTrack = {
+export type GrowthTrack = ResponsiveMedia & {
   id: string;
   title: string;
   level: 'entry' | 'experienced';

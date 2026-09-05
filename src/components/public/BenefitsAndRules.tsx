@@ -1,4 +1,5 @@
 import type { PublishedSiteContent } from '../../content/types';
+import { ResponsiveMediaImage } from './ResponsiveMediaImage';
 
 type BenefitsAndRulesProps = {
   benefits: PublishedSiteContent['benefits'];
@@ -34,6 +35,11 @@ export function BenefitsAndRules({ benefits, rules }: BenefitsAndRulesProps) {
                       <h4>{benefit.title}</h4>
                       <p>{benefit.description}</p>
                     </div>
+                    {benefit.imageSrc && benefit.imageAlt && (
+                      <figure className="benefits-rules__media">
+                        <ResponsiveMediaImage media={benefit} />
+                      </figure>
+                    )}
                   </li>
                 ))}
               </ol>

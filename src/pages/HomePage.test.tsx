@@ -95,7 +95,7 @@ describe('HomePage', () => {
     expect(entryTab).toHaveAttribute('aria-selected', 'true');
   });
 
-  it('renders approved production content as text-only representative profiles and benefits without work rules', () => {
+  it('renders approved production photography across the recruitment story without work rules', () => {
     render(<MemoryRouter><HomePage content={getPublishedContent(siteContent)} /></MemoryRouter>);
 
     expect(screen.getByRole('region', { name: '센터 소개' })).toHaveTextContent('상동역에서 도보 3~4분');
@@ -103,7 +103,10 @@ describe('HomePage', () => {
     const representatives = screen.getByRole('region', { name: '대표 소개' });
     expect(within(representatives).getByRole('heading', { name: '박찬범' })).toBeInTheDocument();
     expect(within(representatives).getByRole('heading', { name: '윤지헌' })).toBeInTheDocument();
-    expect(within(representatives).queryByRole('img')).not.toBeInTheDocument();
+    expect(within(representatives).getByRole('img', { name: '신한 SOHO사관학교에서 강연하는 박찬범 대표' })).toBeInTheDocument();
+    expect(within(representatives).getByRole('img', { name: '메타무브짐 윤지헌 대표 프로필' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: '메타무브짐의 밝은 트레이닝 공간과 운동 기구' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: '메타무브짐 트레이너 교육 현장' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: '제공 혜택' })).toBeInTheDocument();
     expect(screen.queryByRole('table', { name: '근무 규정' })).not.toBeInTheDocument();
     expect(screen.getByRole('region', { name: '1차 채용 검토안' })).toBeInTheDocument();

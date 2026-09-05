@@ -167,7 +167,7 @@ describe('getPublishedContent', () => {
     expect(JSON.stringify(result)).not.toContain('/center-draft.jpg');
   });
 
-  it('publishes the approved Metamove recruitment facts without placeholder media or work rules', () => {
+  it('publishes the approved Metamove recruitment facts and supplied photography without work rules', () => {
     const result = getPublishedContent(siteContent);
 
     expect(result.hero.headline).toBe('움직임을 바꾸는 트레이너, 메타무브짐에서 함께 성장하세요');
@@ -182,11 +182,18 @@ describe('getPublishedContent', () => {
       title: '상동에서 PT를 제대로 배우는 공간',
       paragraphs: expect.arrayContaining([expect.stringContaining('상동역에서 도보 3~4분')]),
     });
-    expect(result.center).not.toHaveProperty('imageSrc');
+    expect(result.hero).toMatchObject({
+      imageSrc: '/media/metamove-hero-desktop.jpg',
+      mobileImageSrc: '/media/metamove-hero-mobile.jpg',
+    });
+    expect(result.center).toHaveProperty('imageSrc', '/media/metamove-center.png');
     expect(result.expansionVision?.body).toContain('목표');
     expect(result.expansionVision?.body).toContain('가능성');
     expect(result.representatives.map(({ name }) => name)).toEqual(['박찬범', '윤지헌']);
-    expect(result.representatives.every(({ imageSrc, imageAlt }) => imageSrc === undefined && imageAlt === undefined)).toBe(true);
+    expect(result.representatives.map(({ imageSrc }) => imageSrc)).toEqual([
+      '/media/park-chanbeom-speaking.jpg',
+      '/media/yoon-jiheon-profile.jpg',
+    ]);
     expect(result.growthTracks.map(({ title }) => title)).toEqual(['신입 트레이너 성장 경로', '경력 트레이너 성장 경로']);
     expect(result.benefits.map(({ title }) => title)).toEqual([
       '트레이닝 교육 지원',

@@ -1,4 +1,5 @@
 import type { PublishedSiteContent } from '../../content/types';
+import { ResponsiveMediaImage } from './ResponsiveMediaImage';
 
 type FounderPairProps = {
   people: PublishedSiteContent['representatives'];
@@ -25,7 +26,7 @@ export function FounderPair({ people }: FounderPairProps) {
             <article className="founder-profile" key={person.id}>
               {person.imageSrc && person.imageAlt && (
                 <figure className="founder-profile__media">
-                  <img src={person.imageSrc} alt={person.imageAlt} />
+                  <ResponsiveMediaImage media={person} />
                 </figure>
               )}
               <div className="founder-profile__details">

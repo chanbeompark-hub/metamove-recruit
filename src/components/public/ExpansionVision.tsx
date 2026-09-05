@@ -1,4 +1,5 @@
 import type { PublishedSiteContent } from '../../content/types';
+import { ResponsiveMediaImage } from './ResponsiveMediaImage';
 
 type ExpansionVisionProps = {
   vision: NonNullable<PublishedSiteContent['expansionVision']>;
@@ -16,7 +17,14 @@ export function ExpansionVision({ vision }: ExpansionVisionProps) {
           <p className="public-section__eyebrow">EXPANSION / VISION</p>
           <h2 id="expansion-vision-title">{vision.title}</h2>
         </header>
-        <p className="expansion-vision__body">{vision.body}</p>
+        <div className="expansion-vision__story">
+          <p className="expansion-vision__body">{vision.body}</p>
+          {vision.imageSrc && vision.imageAlt && (
+            <figure className="expansion-vision__media">
+              <ResponsiveMediaImage media={vision} />
+            </figure>
+          )}
+        </div>
       </div>
     </section>
   );

@@ -389,6 +389,10 @@
     border-inline: 0;
   }
 
+  .hero-evidence__field--media {
+    min-height: 26rem;
+  }
+
   .hero-evidence__axis--horizontal {
     inset-block-start: 50%;
   }

@@ -1,5 +1,6 @@
 import { type KeyboardEvent, useId, useLayoutEffect, useRef, useState } from 'react';
 import type { PublishedSiteContent } from '../../content/types';
+import { ResponsiveMediaImage } from './ResponsiveMediaImage';
 
 type GrowthTabsProps = {
   tracks: PublishedSiteContent['growthTracks'];
@@ -95,10 +96,15 @@ export function GrowthTabs({ tracks }: GrowthTabsProps) {
                 role="tabpanel"
                 tabIndex={0}
               >
-                <div>
+                <div className="growth-tabs__copy">
                   <h3>입사 후 기대 성장</h3>
                   <ul>{track.outcomes.map((item) => <li key={item}>{item}</li>)}</ul>
                 </div>
+                {track.imageSrc && track.imageAlt && (
+                  <figure className="growth-tabs__media">
+                    <ResponsiveMediaImage media={track} />
+                  </figure>
+                )}
               </div>
             ))}
           </div>

@@ -93,6 +93,24 @@
   word-break: keep-all;
 }
 
+.expansion-vision__story {
+  min-width: 0;
+}
+
+.expansion-vision__media {
+  height: clamp(18rem, 32vw, 27rem);
+  margin: var(--space-8) 0 0;
+  overflow: hidden;
+  background: var(--color-navy);
+}
+
+.expansion-vision__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: saturate(0.88) contrast(1.04);
+}
+
 .center-story__grid {
   display: grid;
   grid-template-columns: minmax(7rem, 0.24fr) minmax(18rem, 0.76fr) minmax(20rem, 1fr);
@@ -320,11 +338,28 @@
 .growth-tabs__panel {
   display: grid;
   min-height: 18rem;
-  grid-template-columns: minmax(0, 1fr);
+  grid-template-columns: minmax(15rem, 0.8fr) minmax(18rem, 1.2fr);
   gap: var(--space-12);
   padding: var(--space-12) var(--space-6);
   background: var(--color-mist);
   animation: tab-panel-arrive 240ms ease-out both;
+}
+
+.growth-tabs__copy {
+  align-self: center;
+}
+
+.growth-tabs__media {
+  min-height: 17rem;
+  margin: 0;
+  overflow: hidden;
+  background: var(--color-navy);
+}
+
+.growth-tabs__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .hiring-process__steps {
@@ -393,6 +428,10 @@
   color: var(--color-navy);
 }
 
+.benefits-rules__benefits:only-child {
+  grid-column: 1 / -1;
+}
+
 .benefits-rules__benefits ol {
   margin: 0;
   padding: 0;
@@ -402,11 +441,32 @@
 
 .benefits-rules__benefits li {
   display: grid;
-  grid-template-columns: 3.5rem 1fr;
+  grid-template-columns: 3.5rem minmax(0, 1fr) minmax(7.5rem, 10rem);
+  align-items: center;
   gap: var(--space-6);
   padding-block: var(--space-6);
   border-bottom: 1px solid var(--color-line);
   transition: color 160ms ease-out, padding-inline 160ms ease-out;
+}
+
+.benefits-rules__media {
+  height: 6.5rem;
+  margin: 0;
+  overflow: hidden;
+  background: var(--color-navy);
+}
+
+.benefits-rules__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: saturate(0.86);
+  transition: filter 180ms ease-out, transform 280ms ease-out;
+}
+
+.benefits-rules__benefits li:hover .benefits-rules__media img {
+  filter: saturate(1);
+  transform: scale(1.025);
 }
 
 .benefits-rules__benefits li:hover {
@@ -654,6 +714,20 @@
     padding: var(--space-8) var(--space-4);
   }
 
+  .growth-tabs__media {
+    min-height: 15rem;
+  }
+
+  .benefits-rules__benefits li {
+    grid-template-columns: 2.5rem minmax(0, 1fr);
+    gap: var(--space-4);
+  }
+
+  .benefits-rules__media {
+    grid-column: 2;
+    height: min(48vw, 12rem);
+  }
+
   .benefits-rules__grid,
   .position-summary__requirements {
     grid-template-columns: 1fr;
@@ -686,6 +760,9 @@
 @media (prefers-reduced-motion: reduce) {
   .center-story__media img,
   .founder-profile__media img,
+  .expansion-vision__media img,
+  .growth-tabs__media img,
+  .benefits-rules__media img,
   .growth-tabs__panel,
   .position-summary__action span {
     animation: none !important;
