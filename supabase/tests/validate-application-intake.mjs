@@ -5,6 +5,7 @@ import { fileURLToPath, URL } from 'node:url';
 const migrationUrl = new URL('../migrations/0001_application_intake.sql', import.meta.url);
 const graphMigrationUrl = new URL('../migrations/0002_application_graph_rpc.sql', import.meta.url);
 const hardeningMigrationUrl = new URL('../migrations/0003_application_submission_hardening.sql', import.meta.url);
+const reconciliationMigrationUrl = new URL('../migrations/0004_application_reconciliation_worker.sql', import.meta.url);
 const pgTapUrl = new URL('./application_intake.sql', import.meta.url);
 const configUrl = new URL('../config.toml', import.meta.url);
 
@@ -177,12 +178,14 @@ const cascadeTables = [
 let migration;
 let graphMigration;
 let hardeningMigration;
+let reconciliationMigration;
 let pgTap;
 let config;
 try {
   migration = readFileSync(migrationUrl, 'utf8');
   graphMigration = readFileSync(graphMigrationUrl, 'utf8');
   hardeningMigration = readFileSync(hardeningMigrationUrl, 'utf8');
+  reconciliationMigration = readFileSync(reconciliationMigrationUrl, 'utf8');
   pgTap = readFileSync(pgTapUrl, 'utf8');
   config = readFileSync(configUrl, 'utf8');
 } catch (error) {
@@ -191,7 +194,7 @@ try {
   process.exit(1);
 }
 
-const sql = normalize(`${migration}\n${graphMigration}\n${hardeningMigration}`);
+const sql = normalize(`${migration}\n${graphMigration}\n${hardeningMigration}\n${reconciliationMigration}`);
 const pgTapSql = normalize(pgTap);
 const failures = [];
 
@@ -361,6 +364,11 @@ requireMatch(failures, sql, /create index submission_rate_limits_attempted_at_id
 requireMatch(failures, sql, /create or replace function public\.purge_submission_rate_limits\(.*limit p_limit.*for update skip locked.*grant execute on function public\.purge_submission_rate_limits.*to service_role/s, 'bounded service-only rate retention purge is missing');
 requireMatch(failures, sql, /pg_available_extensions.*pg_cron.*purge-application-submission-rate-limits/s, 'conditional pg_cron retention schedule is missing');
 requireMatch(failures, sql, /revoke all privileges on table public\.application_file_reconciliations from public, anon, authenticated/, 'reconciliation queue privileges are exposed');
+requireMatch(failures, sql, /alter table public\.application_file_reconciliations.*available_at timestamptz not null.*locked_at timestamptz.*lock_token uuid.*status.*'dead'/s, 'reconciliation queue is missing availability, lease, or dead-letter state');
+requireMatch(failures, sql, /create or replace function public\.claim_application_file_reconciliations\(.*security definer.*set search_path = ''.*for update skip locked.*lock_token.*attempt_count =.*\+ 1.*revoke all on function public\.claim_application_file_reconciliations.*from public, anon, authenticated.*grant execute on function public\.claim_application_file_reconciliations.*to service_role/s, 'reconciliation claim RPC is not a bounded service-only SKIP LOCKED lease');
+requireMatch(failures, sql, /create or replace function public\.complete_application_file_reconciliation\(.*security definer.*set search_path = ''.*status = 'resolved'.*p_lock_token.*revoke all on function public\.complete_application_file_reconciliation.*from public, anon, authenticated.*grant execute on function public\.complete_application_file_reconciliation.*to service_role/s, 'reconciliation completion RPC is missing a service-only lease guard');
+requireMatch(failures, sql, /create or replace function public\.retry_application_file_reconciliation\((?=[\s\S]*?security definer)(?=[\s\S]*?set search_path = '')(?=[\s\S]*?available_at)(?=[\s\S]*?p_mark_dead)(?=[\s\S]*?then 'dead')[\s\S]*?revoke all on function public\.retry_application_file_reconciliation[\s\S]*?from public, anon, authenticated[\s\S]*?grant execute on function public\.retry_application_file_reconciliation[\s\S]*?to service_role/s, 'reconciliation retry/dead-letter RPC is missing or exposed');
+requireMatch(failures, sql, /create or replace function public\.is_application_file_reconciliation_path_referenced\(.*security definer.*set search_path = ''.*application_files.*applications.*revoke all on function public\.is_application_file_reconciliation_path_referenced.*from public, anon, authenticated.*grant execute on function public\.is_application_file_reconciliation_path_referenced.*to service_role/s, 'reconciliation storage-path reference guard is missing or exposed');
 requireMatch(
   failures,
   sql,
@@ -470,6 +478,12 @@ requireMatch(
   pgTapSql,
   /global rate-limit purge deletes at most the requested batch size.*bounded purge leaves the next old row for a later batch.*reconciliation rpc records one durable pending cleanup item/s,
   'pgTAP is missing bounded global purge or durable reconciliation behavior',
+);
+requireMatch(
+  failures,
+  pgTapSql,
+  /bounded reconciliation claim leases one available job.*a second claim cannot receive the first worker lease.*a reconciliation completion rejects a mismatched lease token.*expired reconciliation lease becomes claimable by one later worker.*worker retry releases a valid lease into a delayed pending state/s,
+  'pgTAP is missing reconciliation claim concurrency, lease, or retry semantics',
 );
 
 if (failures.length > 0) {

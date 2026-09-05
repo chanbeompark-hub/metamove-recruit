@@ -241,6 +241,7 @@ function validDocx(bytes: Uint8Array) {
   if (entries < 3 || entries > 128 || centralOffset + centralSize !== eocd) return false;
   const files = new Map<string, Uint8Array>();
   let cursor = centralOffset;
+  let localMemberEnd = 0;
   let totalUncompressed = 0;
   for (let index = 0; index < entries; index += 1) {
     if (cursor + 46 > eocd || view.getUint32(cursor, true) !== 0x02014b50) return false;
@@ -253,16 +254,22 @@ function validDocx(bytes: Uint8Array) {
     const extraLength = view.getUint16(cursor + 30, true);
     const commentLength = view.getUint16(cursor + 32, true);
     const localOffset = view.getUint32(cursor + 42, true);
-    if ((flags & 1) !== 0 || (flags & 8) !== 0 || ![0, 8].includes(method) || nameLength < 1 || cursor + 46 + nameLength + extraLength + commentLength > eocd) return false;
+    const hasDataDescriptor = (flags & 8) !== 0;
+    if ((flags & 1) !== 0 || ![0, 8].includes(method) || nameLength < 1 || cursor + 46 + nameLength + extraLength + commentLength > eocd) return false;
     let name: string;
     try { name = decoder.decode(bytes.subarray(cursor + 46, cursor + 46 + nameLength)); } catch { return false; }
     if (name.includes('\\') || name.startsWith('/') || /^[A-Za-z]:/.test(name) || name.split('/').some((part) => part === '..') || files.has(name)) return false;
     totalUncompressed += uncompressedSize;
     if (totalUncompressed > 20 * 1024 * 1024 || uncompressedSize > 16 * 1024 * 1024 || (compressedSize === 0 ? uncompressedSize !== 0 : uncompressedSize / compressedSize > 100)) return false;
-    if (localOffset + 30 > centralOffset || view.getUint32(localOffset, true) !== 0x04034b50) return false;
-    if (view.getUint16(localOffset + 6, true) !== flags || view.getUint16(localOffset + 8, true) !== method
-      || view.getUint32(localOffset + 14, true) !== checksum || view.getUint32(localOffset + 18, true) !== compressedSize
-      || view.getUint32(localOffset + 22, true) !== uncompressedSize) return false;
+    if (localOffset !== localMemberEnd || localOffset + 30 > centralOffset || view.getUint32(localOffset, true) !== 0x04034b50) return false;
+    if (view.getUint16(localOffset + 6, true) !== flags || view.getUint16(localOffset + 8, true) !== method) return false;
+    const localChecksum = view.getUint32(localOffset + 14, true);
+    const localCompressedSize = view.getUint32(localOffset + 18, true);
+    const localUncompressedSize = view.getUint32(localOffset + 22, true);
+    if (!hasDataDescriptor && (localChecksum !== checksum || localCompressedSize !== compressedSize || localUncompressedSize !== uncompressedSize)) return false;
+    if (hasDataDescriptor && ((localChecksum !== 0 && localChecksum !== checksum)
+      || (localCompressedSize !== 0 && localCompressedSize !== compressedSize)
+      || (localUncompressedSize !== 0 && localUncompressedSize !== uncompressedSize))) return false;
     const localNameLength = view.getUint16(localOffset + 26, true);
     const localExtraLength = view.getUint16(localOffset + 28, true);
     const dataStart = localOffset + 30 + localNameLength + localExtraLength;
@@ -271,6 +278,18 @@ function validDocx(bytes: Uint8Array) {
     let localName: string;
     try { localName = decoder.decode(bytes.subarray(localOffset + 30, localOffset + 30 + localNameLength)); } catch { return false; }
     if (localName !== name) return false;
+    let memberEnd = dataEnd;
+    if (hasDataDescriptor) {
+      if (dataEnd + 12 > centralOffset) return false;
+      if (dataEnd + 16 <= centralOffset && view.getUint32(dataEnd, true) === 0x08074b50) {
+        if (view.getUint32(dataEnd + 4, true) !== checksum || view.getUint32(dataEnd + 8, true) !== compressedSize || view.getUint32(dataEnd + 12, true) !== uncompressedSize) return false;
+        memberEnd += 16;
+      } else {
+        if (view.getUint32(dataEnd, true) !== checksum || view.getUint32(dataEnd + 4, true) !== compressedSize || view.getUint32(dataEnd + 8, true) !== uncompressedSize) return false;
+        memberEnd += 12;
+      }
+    }
+    if (memberEnd > centralOffset) return false;
     let data: Uint8Array;
     if (method === 0) data = bytes.slice(dataStart, dataEnd);
     else {
@@ -280,9 +299,10 @@ function validDocx(bytes: Uint8Array) {
     }
     if (data.length !== uncompressedSize || crc32(data) !== checksum) return false;
     files.set(name, data);
+    localMemberEnd = memberEnd;
     cursor += 46 + nameLength + extraLength + commentLength;
   }
-  if (cursor !== eocd || !files.has('[Content_Types].xml') || !files.has('_rels/.rels') || !files.has('word/document.xml')) return false;
+  if (cursor !== eocd || localMemberEnd !== centralOffset || !files.has('[Content_Types].xml') || !files.has('_rels/.rels') || !files.has('word/document.xml')) return false;
   const contentTypes = xmlMarkup(files.get('[Content_Types].xml')!);
   const relationships = xmlMarkup(files.get('_rels/.rels')!);
   const document = xmlMarkup(files.get('word/document.xml')!);

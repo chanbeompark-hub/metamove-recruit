@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import type { ApplicationReconciliationRepository, ReconciliationJob } from './reconciliation';
 import type { ApplicationRepository, PersistedApplication } from './types';
 
 type SupabaseError = { code?: string; details?: string; hint?: string; message?: string } | null;
@@ -12,7 +13,7 @@ export type SupabaseApplicationClient = {
 };
 export type ClientFactory = (url: string, serviceRoleKey: string, options: { auth: { autoRefreshToken: false; detectSessionInUrl: false; persistSession: false } }) => SupabaseApplicationClient;
 export type SupabaseApplicationRepositoryConfig = { supabaseUrl: string; supabaseServiceRoleKey: string };
-export type RepositoryErrorCode = 'REPOSITORY_CONFIGURATION_INVALID' | 'QUOTA_RPC_FAILED' | 'FILE_UPLOAD_FAILED' | 'GRAPH_REJECTED' | 'GRAPH_AMBIGUOUS' | 'RECEIPT_COLLISION' | 'LOOKUP_UNAVAILABLE' | 'FILE_DELETE_FAILED' | 'RECONCILIATION_ENQUEUE_FAILED';
+export type RepositoryErrorCode = 'REPOSITORY_CONFIGURATION_INVALID' | 'QUOTA_RPC_FAILED' | 'FILE_UPLOAD_FAILED' | 'GRAPH_REJECTED' | 'GRAPH_AMBIGUOUS' | 'RECEIPT_COLLISION' | 'LOOKUP_UNAVAILABLE' | 'FILE_DELETE_FAILED' | 'RECONCILIATION_ENQUEUE_FAILED' | 'RECONCILIATION_CLAIM_FAILED' | 'RECONCILIATION_COMPLETE_FAILED' | 'RECONCILIATION_RETRY_FAILED' | 'RECONCILIATION_REFERENCE_CHECK_FAILED';
 export class ApplicationRepositoryError extends Error {
   readonly code: RepositoryErrorCode;
   constructor(code: RepositoryErrorCode) { super(code); this.name = 'ApplicationRepositoryError'; this.code = code; }
@@ -58,7 +59,40 @@ function idempotencyLookupRow(data: unknown) {
   return { applicationId: row.application_id, receiptCode: row.receipt_code };
 }
 
-export function createSupabaseApplicationRepository(config: SupabaseApplicationRepositoryConfig, factory: ClientFactory = createClient as unknown as ClientFactory): ApplicationRepository {
+function reconciliationJobs(data: unknown): ReconciliationJob[] | null {
+  if (!Array.isArray(data)) return null;
+  const jobs: ReconciliationJob[] = [];
+  for (const value of data) {
+    if (typeof value !== 'object' || value === null) return null;
+    const row = value as Record<string, unknown>;
+    if (
+      typeof row.id !== 'string'
+      || typeof row.application_id !== 'string'
+      || typeof row.idempotency_key !== 'string'
+      || !Array.isArray(row.storage_paths)
+      || !row.storage_paths.every((path) => typeof path === 'string')
+      || (row.reason !== 'cleanup_failed' && row.reason !== 'graph_status_unknown')
+      || typeof row.attempt_count !== 'number'
+      || !Number.isSafeInteger(row.attempt_count)
+      || row.attempt_count < 1
+      || typeof row.created_at !== 'string'
+      || typeof row.lock_token !== 'string'
+    ) return null;
+    jobs.push({
+      id: row.id,
+      applicationId: row.application_id,
+      idempotencyKey: row.idempotency_key,
+      paths: row.storage_paths,
+      reason: row.reason,
+      attemptCount: row.attempt_count,
+      createdAt: row.created_at,
+      lockToken: row.lock_token,
+    });
+  }
+  return jobs;
+}
+
+export function createSupabaseApplicationRepository(config: SupabaseApplicationRepositoryConfig, factory: ClientFactory = createClient as unknown as ClientFactory): ApplicationRepository & ApplicationReconciliationRepository {
   if (!config.supabaseUrl.trim() || !config.supabaseServiceRoleKey.trim()) throw new ApplicationRepositoryError('REPOSITORY_CONFIGURATION_INVALID');
   const client = factory(config.supabaseUrl, config.supabaseServiceRoleKey, { auth: { autoRefreshToken: false, detectSessionInUrl: false, persistSession: false } });
   return {
@@ -106,6 +140,43 @@ export function createSupabaseApplicationRepository(config: SupabaseApplicationR
         });
         if (error) throw new Error('enqueue');
       } catch { throw new ApplicationRepositoryError('RECONCILIATION_ENQUEUE_FAILED'); }
+    },
+    async claimFileReconciliations(limit, leaseSeconds) {
+      let result: SupabaseResult<unknown>;
+      try { result = await client.rpc('claim_application_file_reconciliations', { p_limit: limit, p_lease_seconds: leaseSeconds }); } catch { throw new ApplicationRepositoryError('RECONCILIATION_CLAIM_FAILED'); }
+      const jobs = reconciliationJobs(result.data);
+      if (result.error || !jobs) throw new ApplicationRepositoryError('RECONCILIATION_CLAIM_FAILED');
+      return jobs;
+    },
+    async completeFileReconciliation(jobId, lockToken) {
+      let result: SupabaseResult<unknown>;
+      try { result = await client.rpc('complete_application_file_reconciliation', { p_id: jobId, p_lock_token: lockToken }); } catch { throw new ApplicationRepositoryError('RECONCILIATION_COMPLETE_FAILED'); }
+      if (result.error || result.data !== true) throw new ApplicationRepositoryError('RECONCILIATION_COMPLETE_FAILED');
+    },
+    async retryFileReconciliation(input) {
+      let result: SupabaseResult<unknown>;
+      try {
+        result = await client.rpc('retry_application_file_reconciliation', {
+          p_id: input.jobId,
+          p_lock_token: input.lockToken,
+          p_error_code: input.errorCode,
+          p_delay_seconds: input.delaySeconds,
+          p_mark_dead: input.markDead,
+        });
+      } catch { throw new ApplicationRepositoryError('RECONCILIATION_RETRY_FAILED'); }
+      if (result.error || result.data !== true) throw new ApplicationRepositoryError('RECONCILIATION_RETRY_FAILED');
+    },
+    async isApplicationFilePathReferenced(applicationId, idempotencyKey, path) {
+      let result: SupabaseResult<unknown>;
+      try {
+        result = await client.rpc('is_application_file_reconciliation_path_referenced', {
+          p_application_id: applicationId,
+          p_idempotency_key: idempotencyKey,
+          p_path: path,
+        });
+      } catch { throw new ApplicationRepositoryError('RECONCILIATION_REFERENCE_CHECK_FAILED'); }
+      if (result.error || typeof result.data !== 'boolean') throw new ApplicationRepositoryError('RECONCILIATION_REFERENCE_CHECK_FAILED');
+      return result.data;
     },
   };
 }

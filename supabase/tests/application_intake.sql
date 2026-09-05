@@ -332,9 +332,21 @@ select is(
 select is(
   pg_catalog.has_function_privilege('service_role', 'public.find_application_by_idempotency(uuid)', 'EXECUTE')
     and pg_catalog.has_function_privilege('service_role', 'public.enqueue_application_file_reconciliation(uuid,uuid,text[],text)', 'EXECUTE')
-    and pg_catalog.has_function_privilege('service_role', 'public.purge_submission_rate_limits(timestamptz,integer)', 'EXECUTE'),
+    and pg_catalog.has_function_privilege('service_role', 'public.purge_submission_rate_limits(timestamptz,integer)', 'EXECUTE')
+    and pg_catalog.has_function_privilege('service_role', 'public.claim_application_file_reconciliations(integer,integer)', 'EXECUTE')
+    and pg_catalog.has_function_privilege('service_role', 'public.complete_application_file_reconciliation(uuid,uuid)', 'EXECUTE')
+    and pg_catalog.has_function_privilege('service_role', 'public.retry_application_file_reconciliation(uuid,uuid,text,integer,boolean)', 'EXECUTE')
+    and pg_catalog.has_function_privilege('service_role', 'public.is_application_file_reconciliation_path_referenced(uuid,uuid,text)', 'EXECUTE'),
   true,
-  'service role can execute the idempotency, reconciliation, and bounded purge RPCs'
+  'service role can execute the idempotency, reconciliation-worker, and bounded purge RPCs'
+);
+select is(
+  pg_catalog.has_function_privilege('anon', 'public.claim_application_file_reconciliations(integer,integer)', 'EXECUTE')
+    or pg_catalog.has_function_privilege('authenticated', 'public.complete_application_file_reconciliation(uuid,uuid)', 'EXECUTE')
+    or pg_catalog.has_function_privilege('anon', 'public.retry_application_file_reconciliation(uuid,uuid,text,integer,boolean)', 'EXECUTE')
+    or pg_catalog.has_function_privilege('authenticated', 'public.is_application_file_reconciliation_path_referenced(uuid,uuid,text)', 'EXECUTE'),
+  false,
+  'anon and authenticated cannot execute reconciliation worker RPCs'
 );
 select is(
   (
@@ -343,7 +355,11 @@ select is(
     where oid = any(array[
       'public.find_application_by_idempotency(uuid)'::regprocedure,
       'public.enqueue_application_file_reconciliation(uuid,uuid,text[],text)'::regprocedure,
-      'public.purge_submission_rate_limits(timestamptz,integer)'::regprocedure
+      'public.purge_submission_rate_limits(timestamptz,integer)'::regprocedure,
+      'public.claim_application_file_reconciliations(integer,integer)'::regprocedure,
+      'public.complete_application_file_reconciliation(uuid,uuid)'::regprocedure,
+      'public.retry_application_file_reconciliation(uuid,uuid,text,integer,boolean)'::regprocedure,
+      'public.is_application_file_reconciliation_path_referenced(uuid,uuid,text)'::regprocedure
     ])
   ),
   true,
@@ -1248,6 +1264,74 @@ select is(
   1::bigint,
   'reconciliation RPC records one durable pending cleanup item'
 );
+
+set local role service_role;
+create temporary table reconciliation_claim_fixture as
+select *
+from public.claim_application_file_reconciliations(1, 60);
+select is(
+  (select count(*) from reconciliation_claim_fixture),
+  1::bigint,
+  'bounded reconciliation claim leases one available job'
+);
+select is(
+  (select count(*) from public.claim_application_file_reconciliations(1, 60)),
+  0::bigint,
+  'a second claim cannot receive the first worker lease'
+);
+select is(
+  public.complete_application_file_reconciliation(
+    (select id from reconciliation_claim_fixture),
+    '90000000-0000-4000-8000-000000000009'::uuid
+  ),
+  false,
+  'a reconciliation completion rejects a mismatched lease token'
+);
+select is(
+  public.complete_application_file_reconciliation(
+    (select id from reconciliation_claim_fixture),
+    (select lock_token from reconciliation_claim_fixture)
+  ),
+  true,
+  'a reconciliation completion accepts only the claimed lease token'
+);
+insert into public.application_file_reconciliations (
+  id, application_id, idempotency_key, storage_paths, reason, status,
+  attempt_count, available_at, locked_at, lock_token
+) values (
+  '80000000-0000-4000-8000-000000000002',
+  '60000000-0000-4000-8000-000000000002',
+  '70000000-0000-4000-8000-000000000002',
+  array['applications/60000000-0000-4000-8000-000000000002/80000000-0000-4000-8000-000000000002.pdf'],
+  'graph_status_unknown', 'processing',
+  1, now(), now() - interval '61 seconds',
+  '90000000-0000-4000-8000-000000000002'
+);
+create temporary table expired_reconciliation_claim_fixture as
+select *
+from public.claim_application_file_reconciliations(1, 60);
+select is(
+  (select id from expired_reconciliation_claim_fixture),
+  '80000000-0000-4000-8000-000000000002'::uuid,
+  'expired reconciliation lease becomes claimable by one later worker'
+);
+select is(
+  public.retry_application_file_reconciliation(
+    '80000000-0000-4000-8000-000000000002'::uuid,
+    (select lock_token from expired_reconciliation_claim_fixture),
+    'RECONCILIATION_TRANSIENT_FAILURE',
+    30,
+    false
+  ),
+  true,
+  'worker retry releases a valid lease into a delayed pending state'
+);
+select is(
+  (select status from public.application_file_reconciliations where id = '80000000-0000-4000-8000-000000000002'),
+  'pending',
+  'retry stores pending queue state after the lease transition'
+);
+reset role;
 
 select * from finish();
 rollback;

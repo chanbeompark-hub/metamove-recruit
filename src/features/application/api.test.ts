@@ -36,6 +36,7 @@ describe('submitApplication', () => {
     [413, 'PAYLOAD_TOO_LARGE'],
     [429, 'RATE_LIMITED'],
     [503, 'UNAVAILABLE'],
+    [202, 'SUBMISSION_PENDING'],
     [500, 'SUBMISSION_FAILED'],
   ] as const)('maps HTTP %s to a generalized typed error', async (status, code) => {
     const fetcher = vi.fn(async () => Response.json({

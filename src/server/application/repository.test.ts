@@ -163,6 +163,60 @@ describe('createSupabaseApplicationRepository', () => {
     expect(rpc).toHaveBeenCalledWith('enqueue_application_file_reconciliation', expect.objectContaining({ p_paths: [graph().files[0].storagePath] }));
   });
 
+  it('uses service-only lease, metadata-guard, completion, and retry RPCs for reconciliation jobs', async () => {
+    const reconciliationId = '80000000-0000-4000-8000-000000000001';
+    const lockToken = '90000000-0000-4000-8000-000000000001';
+    const { fake, rpc } = client({
+      rpcImplementation: (name) => {
+        if (name === 'claim_application_file_reconciliations') return {
+          data: [{
+            id: reconciliationId,
+            application_id: graph().application.id,
+            idempotency_key: graph().application.idempotencyKey,
+            storage_paths: [graph().files[0].storagePath],
+            reason: 'cleanup_failed',
+            attempt_count: 1,
+            created_at: '2026-09-05T00:00:00.000Z',
+            lock_token: lockToken,
+          }],
+          error: null,
+        };
+        if (name === 'is_application_file_reconciliation_path_referenced') return { data: true, error: null };
+        return { data: true, error: null };
+      },
+    });
+    const repository = createSupabaseApplicationRepository(config, () => fake);
+
+    await expect(repository.claimFileReconciliations(25, 300)).resolves.toEqual([{
+      id: reconciliationId,
+      applicationId: graph().application.id,
+      idempotencyKey: graph().application.idempotencyKey,
+      paths: [graph().files[0].storagePath],
+      reason: 'cleanup_failed',
+      attemptCount: 1,
+      createdAt: '2026-09-05T00:00:00.000Z',
+      lockToken,
+    }]);
+    await expect(repository.isApplicationFilePathReferenced(graph().application.id, graph().application.idempotencyKey, graph().files[0].storagePath)).resolves.toBe(true);
+    await repository.completeFileReconciliation(reconciliationId, lockToken);
+    await repository.retryFileReconciliation({ jobId: reconciliationId, lockToken, errorCode: 'RECONCILIATION_TRANSIENT_FAILURE', delaySeconds: 30, markDead: false });
+
+    expect(rpc).toHaveBeenCalledWith('claim_application_file_reconciliations', { p_limit: 25, p_lease_seconds: 300 });
+    expect(rpc).toHaveBeenCalledWith('is_application_file_reconciliation_path_referenced', {
+      p_application_id: graph().application.id,
+      p_idempotency_key: graph().application.idempotencyKey,
+      p_path: graph().files[0].storagePath,
+    });
+    expect(rpc).toHaveBeenCalledWith('complete_application_file_reconciliation', { p_id: reconciliationId, p_lock_token: lockToken });
+    expect(rpc).toHaveBeenCalledWith('retry_application_file_reconciliation', {
+      p_id: reconciliationId,
+      p_lock_token: lockToken,
+      p_error_code: 'RECONCILIATION_TRANSIENT_FAILURE',
+      p_delay_seconds: 30,
+      p_mark_dead: false,
+    });
+  });
+
   it('uses private remove for cleanup and never suppresses repository errors', async () => {
     const { fake, remove } = client({ removeError: { message: 'storage detail' } });
     const repository = createSupabaseApplicationRepository(config, () => fake);

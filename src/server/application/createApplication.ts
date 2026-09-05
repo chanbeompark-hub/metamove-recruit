@@ -36,7 +36,15 @@ function applicationAnswers(input: ApplicationInput): PersistedApplicationAnswer
 }
 
 async function enqueueReconciliation(repository: ApplicationRepository, applicationId: string, idempotencyKey: string, paths: string[], reason: 'cleanup_failed' | 'graph_status_unknown') {
-  await repository.enqueueFileReconciliation({ applicationId, idempotencyKey, paths, reason });
+  try {
+    await repository.enqueueFileReconciliation({ applicationId, idempotencyKey, paths, reason });
+  } catch {
+    globalThis.console.error('application_reconciliation_enqueue_failed', {
+      code: 'RECONCILIATION_ENQUEUE_FAILED',
+      count: 1,
+    });
+    throw new ApplicationDomainError('SUBMISSION_UNAVAILABLE');
+  }
 }
 
 async function cleanupOrPending(repository: ApplicationRepository, applicationId: string, idempotencyKey: string, paths: string[]) {
@@ -46,6 +54,30 @@ async function cleanupOrPending(repository: ApplicationRepository, applicationId
     await enqueueReconciliation(repository, applicationId, idempotencyKey, failed, 'cleanup_failed');
     throw new ApplicationDomainError('SUBMISSION_PENDING');
   }
+}
+
+async function resolveAmbiguousGraph(
+  repository: ApplicationRepository,
+  applicationId: string,
+  idempotencyKey: string,
+  uploadedPaths: string[],
+) {
+  let existing: { applicationId: string; receiptCode: string } | null;
+  try {
+    existing = await repository.findApplicationByIdempotencyKey(idempotencyKey);
+  } catch {
+    await enqueueReconciliation(repository, applicationId, idempotencyKey, uploadedPaths, 'graph_status_unknown');
+    throw new ApplicationDomainError('SUBMISSION_PENDING');
+  }
+
+  if (!existing) {
+    await enqueueReconciliation(repository, applicationId, idempotencyKey, uploadedPaths, 'graph_status_unknown');
+    throw new ApplicationDomainError('SUBMISSION_PENDING');
+  }
+  if (existing.applicationId === applicationId) return { receiptCode: existing.receiptCode };
+
+  await cleanupOrPending(repository, applicationId, idempotencyKey, uploadedPaths);
+  return { receiptCode: existing.receiptCode };
 }
 
 export async function createApplication(command: CreateApplicationCommand, repository: ApplicationRepository, policy: ApplicationPolicy): Promise<{ receiptCode: string }> {
@@ -114,21 +146,7 @@ export async function createApplication(command: CreateApplicationCommand, repos
         continue;
       }
       if (code === 'GRAPH_AMBIGUOUS') {
-        try {
-          const existing = await repository.findApplicationByIdempotencyKey(command.idempotencyKey);
-          if (existing) {
-            if (existing.applicationId !== applicationId) {
-              await cleanupOrPending(repository, applicationId, command.idempotencyKey, uploadedPaths);
-            }
-            return { receiptCode: existing.receiptCode };
-          }
-          await cleanupOrPending(repository, applicationId, command.idempotencyKey, uploadedPaths);
-          throw new ApplicationDomainError('APPLICATION_SAVE_FAILED');
-        } catch (lookupError) {
-          if (lookupError instanceof ApplicationDomainError) throw lookupError;
-          await enqueueReconciliation(repository, applicationId, command.idempotencyKey, uploadedPaths, 'graph_status_unknown');
-          throw new ApplicationDomainError('SUBMISSION_PENDING');
-        }
+        return resolveAmbiguousGraph(repository, applicationId, command.idempotencyKey, uploadedPaths);
       }
       await cleanupOrPending(repository, applicationId, command.idempotencyKey, uploadedPaths);
       throw new ApplicationDomainError('APPLICATION_SAVE_FAILED');

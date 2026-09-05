@@ -3,6 +3,7 @@ export type ApplicationSubmissionErrorCode =
   | 'PAYLOAD_TOO_LARGE'
   | 'RATE_LIMITED'
   | 'UNAVAILABLE'
+  | 'SUBMISSION_PENDING'
   | 'SUBMISSION_FAILED'
   | 'NETWORK_ERROR';
 
@@ -11,6 +12,7 @@ const ERROR_MESSAGES: Record<ApplicationSubmissionErrorCode, string> = {
   PAYLOAD_TOO_LARGE: '첨부 파일 크기를 확인해주세요.',
   RATE_LIMITED: '잠시 후 다시 시도해주세요.',
   UNAVAILABLE: '현재 지원서를 제출할 수 없습니다.',
+  SUBMISSION_PENDING: '접수 상태를 확인 중입니다. 잠시 후 같은 지원서를 다시 제출해주세요.',
   SUBMISSION_FAILED: '지원서 저장 중 문제가 발생했습니다.',
   NETWORK_ERROR: '네트워크 연결을 확인하고 다시 시도해주세요.',
 };
@@ -33,6 +35,7 @@ function errorForStatus(status: number) {
   if (status === 400) return new ApplicationSubmissionError('INVALID_REQUEST', status);
   if (status === 413) return new ApplicationSubmissionError('PAYLOAD_TOO_LARGE', status);
   if (status === 429) return new ApplicationSubmissionError('RATE_LIMITED', status);
+  if (status === 202) return new ApplicationSubmissionError('SUBMISSION_PENDING', status);
   if (status === 503) return new ApplicationSubmissionError('UNAVAILABLE', status);
   return new ApplicationSubmissionError('SUBMISSION_FAILED', status);
 }

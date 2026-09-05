@@ -160,8 +160,9 @@ describe('createApplication', () => {
     }));
   });
 
-  it('does not hide a reconciliation enqueue failure after storage cleanup fails', async () => {
+  it('fails safely and emits a non-PII operational alert when a cleanup reconciliation enqueue fails', async () => {
     const enqueueError = new ApplicationRepositoryError('RECONCILIATION_ENQUEUE_FAILED');
+    const alert = vi.spyOn(globalThis.console, 'error').mockImplementation(() => undefined);
     const { fake } = repository({
       insertApplicationGraph: vi.fn(async () => {
         throw new ApplicationRepositoryError('GRAPH_REJECTED');
@@ -174,7 +175,17 @@ describe('createApplication', () => {
       }),
     });
 
-    await expect(createApplication(command(), fake, policy)).rejects.toBe(enqueueError);
+    try {
+      await expect(createApplication(command(), fake, policy)).rejects.toThrow('SUBMISSION_UNAVAILABLE');
+      expect(alert).toHaveBeenCalledWith('application_reconciliation_enqueue_failed', {
+        code: 'RECONCILIATION_ENQUEUE_FAILED',
+        count: 1,
+      });
+      expect(JSON.stringify(alert.mock.calls)).not.toContain(validEntryInput.email);
+      expect(JSON.stringify(alert.mock.calls)).not.toContain(command().idempotencyKey);
+    } finally {
+      alert.mockRestore();
+    }
   });
 
   it('deletes the requested resume path when a later portfolio upload fails', async () => {
@@ -302,6 +313,20 @@ describe('createApplication', () => {
     await expect(createApplication(command(), fake, policy)).rejects.toThrow('SUBMISSION_PENDING');
     expect(fake.deleteFile).not.toHaveBeenCalled();
     expect(fake.enqueueFileReconciliation).toHaveBeenCalledOnce();
+  });
+
+  it('never deletes uploads when an ambiguous graph lookup is null and a commit can occur after the lookup', async () => {
+    const { fake } = repository({
+      insertApplicationGraph: vi.fn(async () => { throw new ApplicationRepositoryError('GRAPH_AMBIGUOUS'); }),
+      findApplicationByIdempotencyKey: vi.fn().mockResolvedValue(null),
+    });
+
+    await expect(createApplication(command(), fake, policy)).rejects.toThrow('SUBMISSION_PENDING');
+    expect(fake.deleteFile).not.toHaveBeenCalled();
+    expect(fake.enqueueFileReconciliation).toHaveBeenCalledWith(expect.objectContaining({
+      reason: 'graph_status_unknown',
+      idempotencyKey: command().idempotencyKey,
+    }));
   });
 
   it('retries only receipt collisions without re-uploading files', async () => {

@@ -197,7 +197,7 @@ describe('handleApplicationHttpRequest', () => {
     ['RATE_LIMITED', 429, 'RATE_LIMITED'],
     ['POLICY_UNAVAILABLE', 503, 'UNAVAILABLE'],
     ['SUBMISSION_UNAVAILABLE', 503, 'UNAVAILABLE'],
-    ['SUBMISSION_PENDING', 503, 'UNAVAILABLE'],
+    ['SUBMISSION_PENDING', 202, 'SUBMISSION_PENDING'],
     ['APPLICATION_SAVE_FAILED', 500, 'SUBMISSION_FAILED'],
   ] as const)('maps %s without returning domain or internal details', async (domainCode, status, responseCode) => {
     const deps = dependencies(new ApplicationDomainError(domainCode));
