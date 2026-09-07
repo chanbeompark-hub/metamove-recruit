@@ -27,6 +27,7 @@ export type Benefit = ResponsiveMedia & {
   id: string;
   title: string;
   description: string;
+  details?: string[];
   published: boolean;
 };
 

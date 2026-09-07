@@ -249,11 +249,18 @@ for (const width of mobileWidths) {
     const benefits = page.getByRole('region', { name: '제공 혜택' });
     const benefitTitles = benefits.getByRole('heading', { level: 4 });
     const benefitDescriptions = benefits.locator('.benefits-rules__benefits p');
+    const benefitDetailLists = benefits.locator('.benefits-rules__details');
+    const benefitDetailItems = benefitDetailLists.locator('li');
     await expect(benefitTitles).toHaveCount(5);
     await expect(benefitDescriptions).toHaveCount(5);
+    await expect(benefitDetailLists).toHaveCount(5);
+    await expect(benefitDetailItems).toHaveCount(18);
     for (let index = 0; index < 5; index += 1) {
       await expectTextGeometry(benefitTitles.nth(index), `${width}px benefit title ${index + 1}`, true);
       await expectTextGeometry(benefitDescriptions.nth(index), `${width}px benefit description ${index + 1}`, true);
+    }
+    for (let index = 0; index < await benefitDetailItems.count(); index += 1) {
+      await expectTextGeometry(benefitDetailItems.nth(index), `${width}px benefit detail ${index + 1}`, true);
     }
 
     const draftNotes = page.getByRole('note');
@@ -683,11 +690,17 @@ test('captures representative desktop and mobile public-page evidence', async ({
     path: '.superpowers/sdd/2026-08-31-metamove-public-site/artifacts/public-production-1440.png',
     fullPage: true,
   });
+  await page.locator('#benefits-rules').screenshot({
+    path: '.superpowers/sdd/2026-08-31-metamove-public-site/artifacts/benefits-production-1440.png',
+  });
 
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto('/');
   await page.screenshot({
     path: '.superpowers/sdd/2026-08-31-metamove-public-site/artifacts/public-production-390.png',
     fullPage: true,
+  });
+  await page.locator('#benefits-rules').screenshot({
+    path: '.superpowers/sdd/2026-08-31-metamove-public-site/artifacts/benefits-production-390.png',
   });
 });

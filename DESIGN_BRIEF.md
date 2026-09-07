@@ -36,7 +36,7 @@
 
 | Reference evidence | Extracted principle | Local component | Motion/state | Mobile translation | Acceptance evidence |
 |---|---|---|---|---|---|
-| Equinox 홈과 Personal Trainer 구간 | 채용 행동 뒤에 교육·성장 근거 제공 | Hero, ValueIndex, GrowthTabs | 가치 01→03 순차 공개 | 세로 스택과 고정 지원 CTA | 실제 공개 화면 캡처 `.superpowers/sdd/2026-08-31-metamove-public-site/artifacts/public-production-1440.png`, `public-production-390.png`; 320/360/390/430/1440px E2E에서 모든 섹션·탭·대표 2인·fragment·CTA와 문서 overflow 0 확인 |
+| Equinox 홈과 Personal Trainer 구간 | 채용 행동 뒤에 교육·성장 근거 제공 | Hero, ValueIndex, GrowthTabs, BenefitsAndRules | 가치 01→03 순차 공개, 혜택 행 hover | 혜택 소개와 세부 목록을 한 열로 재배치하고 고정 지원 CTA 유지 | 실제 공개 화면 캡처 `.superpowers/sdd/2026-08-31-metamove-public-site/artifacts/public-production-1440.png`, `public-production-390.png`; 320/360/390/430/1440px E2E에서 혜택별 제목·소개·세부 목록·대표 2인·fragment·CTA와 문서 overflow 0 확인 |
 | On 미션·사람·문화 구간 | 실제 미디어와 짧은 문단으로 브랜드 신념 증명 | CenterStory, FounderPair, ExpansionVision | 구역 진입 시 구조선→본문→사진 순차 공개 | 문단 폭 축소, 사진은 별도 행으로 전환하고 인물 초점 유지 | 사용자 제공 센터·대표·교육 사진과 대체 텍스트를 공개 DOM에서 확인; 320/360/390/430/1440px에서 크롭과 overflow 검증 |
 | GOV.UK Check answers | 제출 전 요약·수정·확정 | ApplicationReview | 수정 후 리뷰 단계 복귀 | 키·값·수정 링크 세로 배치 | 이번 공개 사이트 범위에서는 `/apply` 이동과 복귀 fragment만 E2E 확인; 단계형 검토 화면은 후속 지원서 계획 범위 |
 | Magic UI Number Ticker | 숫자에만 목적 있는 짧은 전환 | ValueIndex | 0→인덱스, 400–650ms | 정적 숫자 또는 단축 전환 | Playwright가 정상 모션의 CSS Animation을 시작·종료 시점으로 직접 이동해 0→최종 변환을 확인하고, reduced-motion에서는 접근성 DOM의 `01/02/03` 최종 문자열과 `animation-name: none`을 확인 |
@@ -95,20 +95,20 @@
 ## Anti-template decisions
 
 - Generic pattern being rejected: 동일 크기 둥근 카드의 반복, 근거 없는 통계 대시보드, 스톡 운동 사진, 과도한 그라데이션과 글로우.
-- Project-specific replacement: 실제 센터 사진을 관통하는 `01/02/03 EvidenceRail`, 대표 2인의 상호 보완 전문성 구성, 신입·경력 성장 탭, 투명한 혜택·규정 표.
+- Project-specific replacement: 실제 센터 사진을 관통하는 `01/02/03 EvidenceRail`, 대표 2인의 상호 보완 전문성 구성, 신입·경력 성장 탭, 교육·브랜딩·현장 경험을 짧은 소개와 세부 목록으로 설명하는 혜택 레일.
 
 ## Responsive and motion contract
 
 - Viewports: 320 / 360 / 390 / 430 / desktop.
 - Desktop media behavior: 실제 센터 사진의 초점 영역을 유지하며 텍스트 안전 영역과 2열로 배치한다.
-- Mobile media behavior: Hero와 센터는 승인된 모바일 전용 소스 또는 데스크톱·모바일 초점 메타데이터를 사용해 사진과 텍스트를 순서대로 쌓고, 대표 사진은 인물 얼굴이 잘리지 않는 별도 모바일 크롭을 사용한다.
+- Mobile media behavior: Hero와 센터는 승인된 모바일 전용 소스 또는 데스크톱·모바일 초점 메타데이터를 사용해 사진과 텍스트를 순서대로 쌓고, 대표 사진은 인물 얼굴이 잘리지 않는 별도 모바일 크롭을 사용한다. 혜택은 번호 → 제목 → 한 문단 소개 → 세부 목록 → 사진 순서로 쌓는다.
 - Scroll reveal grammar: 각 구역에서 구조선 → 제목 → 짧게 나눈 문단 → 사진 순서만 반복하며, 전체 구역을 같은 단순 페이드로 처리하지 않는다.
 - Reduced-motion final state: 모든 정보가 즉시 최종 위치와 값으로 표시되고 자동 스크롤·카운트업을 사용하지 않는다.
 - Text-clipping viewports: 320/360/390/430px에서 한국어 헤드라인, 상태표시, 버튼 라벨의 잘림과 가로 스크롤을 허용하지 않는다.
 
 ## Verification captures
 
-- 실제 공개 화면 전체: `.superpowers/sdd/2026-08-31-metamove-public-site/artifacts/public-production-1440.png`, `.superpowers/sdd/2026-08-31-metamove-public-site/artifacts/public-production-390.png`에서 Pretendard, 다섯 개의 짧은 센터 문단, 이미지 크롭, 구역 간 여백을 확인.
+- 실제 공개 화면 전체: `.superpowers/sdd/2026-08-31-metamove-public-site/artifacts/public-production-1440.png`, `.superpowers/sdd/2026-08-31-metamove-public-site/artifacts/public-production-390.png`에서 Pretendard, 다섯 개의 짧은 센터 문단, 이미지 크롭, 구역 간 여백을 확인. 혜택 구역은 `benefits-production-1440.png`, `benefits-production-390.png`에서 제목·소개·18개 세부 항목·사진의 읽기 순서와 2열→1열 전환을 별도로 확인.
 - 320/360/390/430/1440px: `e2e/public-site.spec.ts`에서 모든 공개 섹션, 성장 탭, 대표 2인, fragment, CTA, 반응형 미디어 source/초점, 문서 가로 overflow, 모바일 footer 비겹침, safe-area 예약 공간 확인.
 - 키보드·경로: skip-link 즉시 노출과 2px focus outline, 렌더된 `/#...` fragment 대상, `/apply` 이동 확인.
 - normal/reduced-motion: EvidenceRail의 접근성 DOM에는 최종 `01/02/03`을 유지하고, 정상 모션은 Web Animations API로 0→최종 숫자 위치를 결정적으로 확인한다. 본문 구역은 IntersectionObserver 진입 시 최종 클래스로 전환하며 reduced-motion에서는 즉시 최종 상태를 표시한다.
