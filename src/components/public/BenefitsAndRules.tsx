@@ -34,6 +34,14 @@ export function BenefitsAndRules({ benefits, rules }: BenefitsAndRulesProps) {
                     <div>
                       <h4>{benefit.title}</h4>
                       <p>{benefit.description}</p>
+                      {benefit.details && benefit.details.length > 0 && (
+                        <ul
+                          className="benefits-rules__details"
+                          aria-label={`${benefit.title} 세부 내용`}
+                        >
+                          {benefit.details.map((detail) => <li key={detail}>{detail}</li>)}
+                        </ul>
+                      )}
                     </div>
                     {benefit.imageSrc && benefit.imageAlt && (
                       <figure className="benefits-rules__media">
